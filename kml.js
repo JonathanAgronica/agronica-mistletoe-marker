@@ -13,7 +13,7 @@
   function markName(m) { return m.name || ((m.side === 'L' ? 'L-' : 'R-') + m.n); }
 
   // KML colours are aabbggrr
-  var COLOURS = { L: 'ffff7a1f', R: 'ff3a28d6' }; // L = blue (#1f7aff), R = red (#d6283a)
+  var COLOURS = { L: 'ffff622d', R: 'ff00b4ff' }; // L = blue (#2d62ff), R = Agronica orange (#ffb400)
   var ICON = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png';
 
   function buildKml(session, opts) {
@@ -30,7 +30,7 @@
         '<Icon><href>' + ICON + '</href></Icon></IconStyle>' +
         '<LabelStyle><color>' + COLOURS[s] + '</color></LabelStyle></Style>');
     });
-    out.push('<Style id="trackStyle"><LineStyle><color>ffa05a1f</color><width>3</width></LineStyle></Style>');
+    out.push('<Style id="trackStyle"><LineStyle><color>ff03b698</color><width>3</width></LineStyle></Style>');
 
     out.push('<Folder><name>Marks</name>');
     marks.forEach(function (m) {

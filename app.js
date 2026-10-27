@@ -165,13 +165,13 @@
     var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
     function X(lon) { return ox + (lon - minLo) * kx * sc; }
     function Y(lat) { return H - (oy + (lat - minLa) * sc); }
-    g.lineWidth = 2; g.strokeStyle = '#9fb0ff';
+    g.lineWidth = 2; g.strokeStyle = '#98b603';
     tracks.forEach(function (t) {
       if (t.length < 2) return;
       g.beginPath(); t.forEach(function (p, i) { i ? g.lineTo(X(p.lon), Y(p.lat)) : g.moveTo(X(p.lon), Y(p.lat)); }); g.stroke();
     });
     state.marks.forEach(function (m) {
-      g.fillStyle = m.side === 'L' ? '#1f7aff' : '#d6283a'; g.strokeStyle = '#fff'; g.lineWidth = 2;
+      g.fillStyle = m.side === 'L' ? '#2d62ff' : '#ffb400'; g.strokeStyle = '#fff'; g.lineWidth = 2;
       g.beginPath(); g.arc(X(m.lon), Y(m.lat), 7, 0, 7); g.fill(); g.stroke();
     });
   }

@@ -1,4 +1,4 @@
-const CACHE = 'mistletoe-marker-v1';
+const CACHE = 'mistletoe-marker-v2';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './kml.js', './manifest.json',
   './icons/logo.png', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
   './icons/maskable-192.png', './icons/maskable-512.png'];
