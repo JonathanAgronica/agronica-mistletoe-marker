@@ -229,12 +229,25 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v4');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v5');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v4') && !swInfo.names.includes('mistletoe-marker-v3'));
-  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v5') && !swInfo.names.includes('mistletoe-marker-v4'));
+  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  // mistletoe icons: header logo loads at 512, manifest icons all resolve with the declared size, favicon/apple-touch linked
+  const iconInfo = await page.evaluate(async () => {
+    const img = document.querySelector('header img.logo');
+    const man = await (await fetch('./manifest.json')).json();
+    const sizes = await Promise.all(man.icons.map(i => new Promise(r => { const m = new Image(); m.onload = () => r(m.naturalWidth + 'x' + m.naturalHeight); m.onerror = () => r('ERR'); m.src = i.src; })));
+    return { logo: img.src.split('/').pop(), logoW: img.naturalWidth, declared: man.icons.map(i => i.sizes), sizes, purposes: man.icons.map(i => i.purpose),
+      links: [...document.querySelectorAll('link[rel~=icon],link[rel=apple-touch-icon]')].map(l => l.getAttribute('href')) };
+  });
+  assert.strictEqual(iconInfo.logo, 'logo.png'); assert.strictEqual(iconInfo.logoW, 512);
+  assert.deepStrictEqual(iconInfo.sizes, iconInfo.declared, 'manifest icon sizes match');
+  assert.ok(iconInfo.purposes.filter(x => x === 'maskable').length === 2);
+  assert.ok(iconInfo.links.includes('icons/favicon.svg') && iconInfo.links.includes('icons/icon-180.png'));
+  console.log('Icons OK');
   await page.evaluate(async (kmlText) => {
     const fd = new FormData(); fd.append('kml', new File([kmlText], 'shared-block.kml', { type: 'application/vnd.google-earth.kml+xml' }));
     await fetch('./share-target', { method: 'POST', body: fd });
