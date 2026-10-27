@@ -13,14 +13,25 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   const page = await browser.newPage(); const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message)); page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.evaluateOnNewDocument((u, l) => { try { localStorage.setItem('mm-tile-url', u); localStorage.setItem('mm-label-url', l); } catch (e) {}
-    window.__posts = []; window.__mode = 'ok'; window.__accessMode = 'ok';
+    window.__posts = []; window.__gets = []; window.__mode = 'ok'; window.__accessMode = 'ok'; window.__status = { status: 'none' };
     const rf = window.fetch.bind(window);
+    const R = (code, body, text) => new Response(text != null ? text : JSON.stringify(body), { status: code, headers: { 'Content-Type': 'application/json' } });
     window.fetch = (url, o) => {            // mock only the research endpoints
-      if (/sslip\.io/.test(String(url))) {
-        const isA = /access-request/.test(url); window.__posts.push({ url: String(url), headers: o.headers, body: JSON.parse(o.body) });
+      url = String(url);
+      if (/sslip\.io/.test(url)) {
+        o = o || {};
+        if ((o.method || 'GET') === 'GET') {
+          window.__gets.push({ url, headers: o.headers });
+          if (/access-status/.test(url)) return Promise.resolve(R(200, Object.assign({ ok: true }, window.__status)));
+          if (/pooled\.kml/.test(url)) return Promise.resolve(R(200, null, window.__pooledKml));
+          if (/pooled\.csv/.test(url)) return Promise.resolve(R(200, null, 'id,lat,lon\n1,-24.95,152.25\n'));
+          return Promise.resolve(R(404, { ok: false, error: 'nf' }));
+        }
+        const isA = /access-request/.test(url), body = JSON.parse(o.body); window.__posts.push({ url, headers: o.headers, body });
         const mode = isA ? window.__accessMode : window.__mode;
         if (mode === 'down') return Promise.reject(new TypeError('Failed to fetch'));
-        return Promise.resolve(new Response('{}', { status: mode === '404' ? 404 : mode === '500' ? 500 : 200 }));
+        if (mode === '404' || mode === '500') return Promise.resolve(R(Number(mode), { ok: false, error: 'x' }));
+        return Promise.resolve(R(200, isA ? { ok: true, status: 'pending' } : { ok: true, received: (body.marks || []).length }));
       }
       return rf(url, o);
     };
@@ -59,7 +70,7 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   await page.click('#shOpt'); await page.type('#shName', 'Jo Bloggs'); await page.type('#shEmail', 'jo@example.com'); await page.type('#shFarm', 'Bloggs Macs'); await page.type('#shDistrict', 'Bundaberg');
   await page.select('#shVar', 'A16');
   await page.click('#shSave'); await sleep(500);
-  let st = await ls(); assert.strictEqual(st.s.optIn, true); assert.ok(/^mm-/.test(st.s.deviceId)); assert.strictEqual(st.s.name, 'Jo Bloggs');
+  let st = await ls(); assert.strictEqual(st.s.optIn, true); assert.ok(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(st.s.deviceId), 'UUID device id'); assert.strictEqual(st.s.name, 'Jo Bloggs');
   // ---- severity chips on rapid marking
   await page.click('#btnR'); await sleep(150); await page.click('#btnL'); await sleep(150);
   await page.screenshot({ path: SHOTS + '/severity.png' }); await page.screenshot({ path: '/workspace/mm-v11-severity.png' });
@@ -85,30 +96,53 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   const posts = await page.evaluate(() => window.__posts.filter(p => p.url.endsWith('/submit')));
   assert.ok(posts.length >= 1, 'POST to the ingest URL'); const all = posts.flatMap(p => p.body.marks);
   assert.strictEqual(new Set(all.map(m => m.id)).size, all.length, 'no duplicate marks uploaded'); assert.strictEqual(all.length, 5, 'opt-in marks only (the OFF mark is not sent): ' + all.length);
-  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v11'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
-  assert.deepStrictEqual(p0.contact, { name: 'Jo Bloggs', email: 'jo@example.com', farm: 'Bloggs Macs' }); assert.ok(/^mm-/.test(p0.deviceId));
+  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v12'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
+  assert.deepStrictEqual(p0.contact, { name: 'Jo Bloggs', email: 'jo@example.com', farm: 'Bloggs Macs' }); assert.ok(p0.deviceId === st.s.deviceId && p0.consent === true); assert.strictEqual(posts[0].headers['X-Ingest-Key'], 'mm-f1e22c16ccf1fe6050906fae'); assert.ok(/^[A-Za-z0-9._:-]{1,64}$/.test(p0.sessionId));
   assert.ok(all.some(m => m.severity === 'heavy') && all.some(m => m.category === 'broken-irrigation') && all.some(m => m.variety === 'A38'));
   assert.ok(all.every(m => typeof m.lat === 'number' && /^\d{4}-/.test(m.time) && (m.side === 'L' || m.side === 'R')));
   assert.ok(/Last synced: (just now|\d+ min)/.test(await txt('shStatus')) && /Queued: 0 marks/.test(await txt('shStatus')), await txt('shStatus'));
   assert.ok(!(await page.$eval('#shReq', e => e.disabled)), 'Request enabled after a successful sync');
   await page.screenshot({ path: SHOTS + '/settings.png' });
-  // ---- access request: email required; success; 404 -> mailto fallback; offline queue
+  // ---- access request: name + email required; 404 -> mailto fallback; offline queue; flushed on sync; status shown
+  const apost = () => page.evaluate(() => window.__posts.filter(p => /access-request/.test(p.url)));
   await page.click('#shReq'); await sleep(200); assert.ok(await vis('shAccess'));
-  assert.strictEqual(await page.$eval('#shReqEmail', e => e.value), 'jo@example.com');
-  await page.$eval('#shReqEmail', e => { e.value = ''; }); await page.click('#shReqSend'); await sleep(200);
-  assert.ok(/valid email/.test(await txt('shReqNote')), 'email required'); assert.strictEqual((await page.evaluate(() => window.__posts.filter(p => p.url === 'https://170-64-148-102.sslip.io/api/mistletoe/access-request'))).length, 0);
-  await page.type('#shReqEmail', 'jo@example.com'); await page.type('#shReqMsg', 'Keen to see Bundaberg data'); await page.click('#shReqSend'); await sleep(500);
-  assert.ok(/Agronica will be in touch/.test(await txt('shReqNote')), await txt('shReqNote'));
-  const ap = await page.evaluate(() => window.__posts.filter(p => /access-request/.test(p.url)));
-  assert.strictEqual(ap.length, 1); assert.deepStrictEqual(Object.keys(ap[0].body).sort(), ['deviceId', 'district', 'email', 'farm', 'message', 'name']); assert.strictEqual(ap[0].body.message, 'Keen to see Bundaberg data');
-  // 404 -> mailto
-  await page.evaluate(() => { window.__accessMode = '404'; }); await page.click('#shReq'); await sleep(200);
-  await page.evaluate(() => { document.getElementById('shReqEmail').value = 'jo@example.com'; });
-  await page.click('#shReqSend'); await sleep(600);
-  const lm = await page.evaluate(() => window.__lastMailto); assert.ok(lm && lm.startsWith('mailto:jonathan@agronicaag.com'), 'mailto fallback on 404: ' + lm); assert.ok(decodeURIComponent(lm).includes('Bloggs Macs'));
-  // offline -> queued
-  await page.evaluate(() => { window.__accessMode = 'down'; }); await page.click('#shReq'); await sleep(200); await page.evaluate(() => { document.getElementById('shReqEmail').value = 'jo@example.com'; });
-  await page.click('#shReqSend'); await sleep(600); assert.ok(/when you are online/.test(await txt('shReqNote')), await txt('shReqNote')); assert.strictEqual((await ls()).q.access.length, 1);
+  assert.strictEqual(await page.$eval('#shReqEmail', e => e.value), 'jo@example.com'); assert.strictEqual(await page.$eval('#shReqName', e => e.value), 'Jo Bloggs');
+  await page.$eval('#shReqName', e => { e.value = ''; }); await page.click('#shReqSend'); await sleep(200);
+  assert.ok(/your name/.test(await txt('shReqNote')), 'name required');
+  await page.type('#shReqName', 'Jo Bloggs'); await page.$eval('#shReqEmail', e => { e.value = ''; }); await page.click('#shReqSend'); await sleep(200);
+  assert.ok(/valid email/.test(await txt('shReqNote')), 'email required'); assert.strictEqual((await apost()).length, 0);
+  await page.type('#shReqEmail', 'jo@example.com'); await page.type('#shReqMsg', 'Keen to see Bundaberg data');
+  await page.evaluate(() => { window.__accessMode = '404'; }); await page.click('#shReqSend'); await sleep(600);
+  const lm = await page.evaluate(() => window.__lastMailto); assert.ok(lm && lm.startsWith('mailto:jonathan@agronicaag.com'), 'mailto fallback on 404: ' + lm); assert.ok(decodeURIComponent(lm).includes('Bloggs Macs') && decodeURIComponent(lm).includes('Jo Bloggs'));
+  await page.evaluate(() => { window.__accessMode = 'down'; }); await page.click('#shReqSend'); await sleep(600);
+  assert.ok(/when you are online/.test(await txt('shReqNote')), await txt('shReqNote')); assert.strictEqual((await ls()).q.access.length, 1);
+  await page.evaluate(() => { window.__accessMode = 'ok'; }); await page.click('#shSync'); await sleep(900);
+  const ap = (await apost()).filter(x => x.body.name); assert.ok(ap.length >= 1); const last = ap[ap.length - 1];
+  assert.deepStrictEqual(Object.keys(last.body).sort(), ['deviceId', 'district', 'email', 'farm', 'message', 'name']); assert.strictEqual(last.body.name, 'Jo Bloggs'); assert.strictEqual(last.body.message, 'Keen to see Bundaberg data'); assert.strictEqual(last.headers['X-Ingest-Key'], 'mm-f1e22c16ccf1fe6050906fae');
+  assert.strictEqual((await ls()).q.access.length, 0, 'queued request sent');
+  await page.evaluate(() => { window.__status = { status: 'pending' }; }); await page.click('#shClose'); await page.click('#menuBtn'); await sleep(200); await page.click('#menuShare'); await sleep(700);
+  assert.ok(/Pending/.test(await txt('shAccStatus')), await txt('shAccStatus')); assert.ok(await page.$eval('#shReq', e => e.disabled), 'no second request while pending');
+  assert.ok((await page.evaluate(() => window.__gets.filter(g => /access-status\?deviceId=[0-9a-f-]{36}$/.test(g.url) && g.headers['X-Ingest-Key']))).length >= 1, 'status check with deviceId + key');
+  assert.ok(!(await vis('shAccOk')), 'no downloads until approved');
+  await page.screenshot({ path: SHOTS + '/settings-pending.png' });
+  // approved: download buttons + pooled layer; status re-checked on resume (visibilitychange)
+  await page.evaluate(() => { window.__status = { status: 'approved', expiresAt: new Date(Date.now() + 5 * 864e5).toISOString(), downloadUrls: { kml: 'https://170-64-148-102.sslip.io/api/mistletoe/pooled.kml?t=1', csv: 'https://170-64-148-102.sslip.io/api/mistletoe/pooled.csv?t=1' } };
+    window.__pooledKml = window.KML.buildKml({ marks: [0, 1, 2].map(i => ({ side: i ? 'L' : 'R', n: i + 1, name: 'SECRET-NAME-' + i, lat: -24.95 + i * 0.001, lon: 152.25, acc: 5, ts: 1700000000000 + i, sev: ['light', 'moderate', 'heavy'][i], variety: 'A4' })), track: [] }, {}); });
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }); await sleep(800);
+  assert.ok(/Approved/.test(await txt('shAccStatus')) && await vis('shAccOk'), await txt('shAccStatus'));
+  assert.ok(/Approved \(until/.test(await txt('shAccStatus'))); await page.screenshot({ path: SHOTS + '/settings-approved.png' });
+  await page.click('#shDlKml'); await sleep(600); assert.ok(/Downloaded agronica-pooled-mistletoe-.*\.kml/.test(await txt('shAccNote')), await txt('shAccNote'));
+  await page.click('#shDlCsv'); await sleep(600); assert.ok(/Downloaded .*\.csv/.test(await txt('shAccNote')), await txt('shAccNote'));
+  const dget = await page.evaluate(() => window.__gets.filter(g => /pooled\./.test(g.url))); assert.ok(dget.length >= 2 && dget.every(g => g.headers['X-Ingest-Key']));
+  await page.click('#shPooled'); await sleep(800); assert.ok(/Loaded 3 pooled marks/.test(await txt('shAccNote')), await txt('shAccNote'));
+  const pc = await page.evaluate(() => ({ n: window.MMap.pooledCount(), keys: Object.keys(window.MMap.pooled()[0]).sort(), names: JSON.stringify(window.MMap.pooled()).includes('SECRET-NAME') }));
+  assert.strictEqual(pc.n, 3); assert.ok(!pc.names, 'pooled layer is anonymised'); assert.deepStrictEqual(pc.keys, ['cat', 'lat', 'lon', 'side', 'sev', 'ts', 'variety'].sort());
+  await page.click('#shClose'); await page.click('#menuBtn'); await sleep(900);
+  const pst = await page.evaluate(() => window.__menuMap().stats()); assert.strictEqual(pst.pooled, 3, 'pooled markers drawn on the menu map'); assert.strictEqual(pst.marks > 0, true, 'own marks still drawn separately');
+  await page.screenshot({ path: SHOTS + '/menu-pooled.png' });
+  await page.click('#menuShare'); await sleep(300); await page.click('#shPooledClear'); await sleep(300); assert.strictEqual(await page.evaluate(() => window.MMap.pooledCount()), 0);
+  await page.evaluate(() => { window.__status = { status: 'none' }; });
+
   // ---- server not ready: queue kept, graceful
   await page.evaluate(() => { window.__mode = 'down'; });
   await page.click('#shClose'); await page.click('#btnR'); await sleep(300); await page.click('#menuBtn'); await sleep(300); await page.click('#menuShare'); await sleep(300); await page.click('#shSync'); await sleep(800);

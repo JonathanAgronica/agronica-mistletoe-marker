@@ -226,7 +226,13 @@
       <button id="shSync" class="soft full" type="button"><svg class="ic"><use href="#i-upload"/></svg><span>Sync now</span></button>
       <button id="shReq" class="soft full" type="button"><svg class="ic"><use href="#i-globe"/></svg><span>Request collaborative data</span></button>
       <div id="shReqHint" class="dim small-txt"></div>
-      <div id="shAccess" class="hidden"><div class="field"><label for="shReqEmail">Your email (required)</label><input id="shReqEmail" type="email" autocomplete="email" inputmode="email"></div>
+      <div id="shAccStatus" class="sh-accstat" role="status"></div>
+      <div id="shAccOk" class="hidden"><div class="sh-dl"><button id="shDlKml" class="soft" type="button"><svg class="ic"><use href="#i-share"/></svg><span>Download KML</span></button><button id="shDlCsv" class="soft" type="button"><svg class="ic"><use href="#i-share"/></svg><span>Download CSV</span></button></div>
+        <button id="shPooled" class="soft full" type="button"><svg class="ic"><use href="#i-pin"/></svg><span>Load pooled data in Find/map</span></button></div>
+      <button id="shPooledClear" class="soft full hidden" type="button"><svg class="ic"><use href="#i-x"/></svg><span>Remove pooled layer</span></button>
+      <div id="shAccNote" role="status" class="sh-err"></div>
+      <div id="shAccess" class="hidden"><div class="field"><label for="shReqName">Your name (required)</label><input id="shReqName" type="text" autocomplete="name" maxlength="80"></div>
+        <div class="field"><label for="shReqEmail">Your email (required)</label><input id="shReqEmail" type="email" autocomplete="email" inputmode="email"></div>
         <div class="field"><label for="shReqMsg">Message (optional)</label><textarea id="shReqMsg" rows="3" maxlength="500" placeholder="What would you like to use the data for?"></textarea></div>
         <button id="shReqSend" class="start full" type="button">Send request</button>
         <a id="shReqMail" href="#" class="dim small-txt sh-alt">Or email Agronica instead</a>

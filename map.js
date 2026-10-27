@@ -80,6 +80,16 @@
 
   // ---------- map component ----------
   // opts: { find: bool, onStatus(raw, 'found'|'treated'|''), height, noSave, noFollow, legend }
+  // ---- pooled (collaborative) data: read-only, anonymised layer shared by every map instance ----
+  var POOLED = [], INSTANCES = [];
+  var SEV_COL = { light: '#98b603', moderate: '#ffb400', heavy: '#d93636' };
+  function setPooled(marks) {
+    POOLED = (marks || []).filter(function (m) { return isFinite(m.lat) && isFinite(m.lon); }).slice(0, 30000).map(function (m) {
+      return { lat: m.lat, lon: m.lon, side: m.side || '', cat: m.cat || '', sev: m.sev || '', variety: m.variety || '', ts: m.ts || 0 };   // no names / ids
+    });
+    INSTANCES.forEach(function (f) { f(); });
+    return POOLED.length;
+  }
   function create(host, opts) {
     opts = opts || {};
     var K = root.KML, G = root.GEO;
@@ -94,6 +104,25 @@
     var map = null, tiles = null, labels = null, layers = {}, busy = false;
     var st = { follow: false, autoFit: true, labels: !!prefs().labels, key: null, sig: '', trackSig: '', data: null, tileErr: 0, tileErrAt: 0, saving: false };
 
+    function drawPooled() {
+      if (!map || !layers.pooled) return;
+      layers.pooled.clearLayers();
+      if (!POOLED.length) return;
+      var rend = L.canvas({ padding: 0.5 });
+      POOLED.forEach(function (p) {
+        var cm = L.circleMarker([p.lat, p.lon], { renderer: rend, radius: 5, weight: 1.5, color: '#7a3fd6', fillColor: SEV_COL[p.sev] || '#cfcfcf', fillOpacity: 0.8 });
+        cm.bindPopup(function () {
+          var c = el('div', 'mm-pop'); c.appendChild(el('b', null, 'Pooled data (anonymised, read-only)'));
+          var cat = p.cat && K.catById(p.cat) ? K.catLabel(p.cat) : 'Mistletoe';
+          [['Type', cat], ['Side', p.side === 'L' ? 'Left' : p.side === 'R' ? 'Right' : '-'], ['Severity', p.sev || 'not set'], ['Variety', p.variety || 'not set'], ['Date', p.ts ? K.fmtLocal(p.ts).slice(0, 10) : '-']].forEach(function (r) {
+            var d = el('div', 'pp-r'); d.appendChild(el('span', null, r[0])); d.appendChild(el('b', null, r[1])); c.appendChild(d);
+          });
+          return c;
+        }, { minWidth: 170 });
+        cm.addTo(layers.pooled);
+      });
+    }
+    INSTANCES.push(drawPooled);
     function build() {
       map = L.map(canvas, { zoomControl: true, attributionControl: true, maxZoom: MAX_ZOOM, minZoom: 3, zoomSnap: 0.5, tap: true });
       map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
@@ -109,7 +138,9 @@
       labels = L.tileLayer(labelsUrl(), { pane: 'labels', attribution: ATTR, maxZoom: MAX_ZOOM, maxNativeZoom: MAX_NATIVE, crossOrigin: true });
       L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
       layers.tracksCase = L.layerGroup().addTo(map); layers.tracks = L.layerGroup().addTo(map);
+      layers.pooled = L.layerGroup().addTo(map);
       layers.marks = L.layerGroup().addTo(map); layers.over = L.layerGroup().addTo(map);
+      drawPooled();
       map.setView(DEFAULT_VIEW, 11);
       map.on('dragstart', function () { if (!busy) { st.follow = false; st.autoFit = false; syncBtns(); } });
       map.on('zoomstart', function () { if (!busy) { st.autoFit = false; syncBtns(); } });
@@ -297,7 +328,7 @@
       update: update, invalidate: invalidate, host: host, showSaved: showSaved,
       getMap: function () { return map; },
       stats: function () {
-        return { built: !!map, zoom: map ? map.getZoom() : null, marks: layers.marks ? layers.marks.getLayers().length : 0,
+        return { built: !!map, pooled: layers.pooled ? layers.pooled.getLayers().length : 0, zoom: map ? map.getZoom() : null, marks: layers.marks ? layers.marks.getLayers().length : 0,
           tracks: layers.tracks ? layers.tracks.getLayers().length : 0, hasPos: !!pm, hasAccuracy: !!acc, accRadius: acc ? acc.getRadius() : null, radiusM: rad ? rad.getRadius() : null, posHeading: !!(pm && pm.getElement() && /hd/.test(pm.getElement().className)), hasRadius: !!rad, hasTargetLine: !!tl,
           labels: st.labels, follow: st.follow, autoFit: st.autoFit, saving: st.saving, lastSave: st._lastSave || null,
           tileCount: canvas.querySelectorAll('img.leaflet-tile').length, loadedTiles: canvas.querySelectorAll('img.leaflet-tile-loaded').length,
@@ -309,7 +340,7 @@
     };
   }
 
-  root.MMap = { create: create, TILE_URL: TILE_URL, LABEL_URL: LABEL_URL, ATTR: ATTR, MAX_NATIVE: MAX_NATIVE, SAVE_LIMIT: SAVE_LIMIT,
+  root.MMap = { create: create, setPooled: setPooled, pooledCount: function () { return POOLED.length; }, pooled: function () { return POOLED.slice(); }, TILE_URL: TILE_URL, LABEL_URL: LABEL_URL, ATTR: ATTR, MAX_NATIVE: MAX_NATIVE, SAVE_LIMIT: SAVE_LIMIT,
     SAVED_CACHE: SAVED_CACHE, VIEWED_CACHE: VIEWED_CACHE, planSave: planSave, tileList: tileList, countAt: countAt, tileX: tileX, tileY: tileY, fillUrl: fillUrl };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.MMap;
 })(typeof self !== 'undefined' ? self : this);
