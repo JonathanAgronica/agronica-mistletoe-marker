@@ -79,38 +79,48 @@
     var c = el.getElementsByTagName(tag);
     return c.length ? (c[0].textContent || '').trim() : '';
   }
+  function sideFrom(data, name, desc, styleUrl) {
+    if (data.side === 'L' || data.side === 'R') return data.side;
+    if (/^\s*([LR])[-_ ]?\d+\s*$/i.test(name)) return /^\s*l/i.test(name) ? 'L' : 'R';
+    if (/mark([LR])\b/.test(styleUrl)) return /markL/.test(styleUrl) ? 'L' : 'R';
+    var t = name + ' ' + desc;
+    var l = /\bleft\b/i.test(t), r = /\bright\b/i.test(t);
+    if (l && !r) return 'L';
+    if (r && !l) return 'R';
+    return ''; // unknown (foreign KML)
+  }
   function parseKmlDoc(doc) {
     var marks = [], tracks = [];
     kids(doc, 'Placemark').forEach(function (pm) {
-      var pt = pm.getElementsByTagName('Point')[0];
-      var ls = pm.getElementsByTagName('LineString')[0];
-      var name = text(pm, 'name');
-      if (pt) {
-        var c = text(pt, 'coordinates').split(',');
+      var name = text(pm, 'name'), desc = text(pm, 'description');
+      var pts = kids(pm, 'Point');
+      var lss = kids(pm, 'LineString');
+      pts.forEach(function (pt, pi) {
+        var c = text(pt, 'coordinates').split(/[,\s]+/);
         var lon = parseFloat(c[0]), lat = parseFloat(c[1]);
-        if (isNaN(lat) || isNaN(lon)) return;
+        if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
         var data = {};
         kids(pm, 'Data').forEach(function (d) { data[d.getAttribute('name')] = text(d, 'value'); });
-        var side = data.side || (/^\s*r/i.test(name) ? 'R' : 'L');
-        if (!data.side) {
-          var su = text(pm, 'styleUrl');
-          if (/markR/.test(su)) side = 'R'; else if (/markL/.test(su)) side = 'L';
-        }
+        kids(pm, 'SimpleData').forEach(function (d) { data[d.getAttribute('name')] = (d.textContent || '').trim(); });
+        var side = sideFrom(data, name, desc, text(pm, 'styleUrl'));
         var ts = parseInt(data.ts, 10);
         if (!ts) { var w = text(pm, 'when'); ts = w ? Date.parse(w) : NaN; }
         if (!ts || isNaN(ts)) ts = 0;
         var nm = /(\d+)\s*$/.exec(name);
         var n = parseInt(data.n, 10) || (nm ? parseInt(nm[1], 10) : 0);
         var acc = data.accuracy === '' || data.accuracy == null ? null : parseFloat(data.accuracy);
-        marks.push({ side: side === 'R' ? 'R' : 'L', n: n, name: name, lat: lat, lon: lon,
-          acc: isNaN(acc) ? null : acc, ts: ts, imported: true });
-      } else if (ls) {
-        var pts = text(ls, 'coordinates').split(/\s+/).map(function (s) {
-          var p = s.split(',');
-          return { lon: parseFloat(p[0]), lat: parseFloat(p[1]) };
-        }).filter(function (p) { return !isNaN(p.lat) && !isNaN(p.lon); });
-        if (pts.length) tracks.push({ name: name || 'Imported track', pts: pts });
-      }
+        var status = data.status === 'found' || data.status === 'treated' ? data.status : (data.found === '1' ? 'found' : '');
+        var foundTs = parseInt(data.foundTs, 10) || 0;
+        marks.push({ side: side, n: n, name: pts.length > 1 ? (name || '') + ' #' + (pi + 1) : name, lat: lat, lon: lon,
+          acc: isNaN(acc) ? null : acc, ts: ts, imported: true, status: status, foundTs: foundTs });
+      });
+      if (!pts.length) lss.forEach(function (ls) {
+        var p = text(ls, 'coordinates').split(/\s+/).map(function (s) {
+          var q = s.split(',');
+          return { lon: parseFloat(q[0]), lat: parseFloat(q[1]) };
+        }).filter(function (q) { return !isNaN(q.lat) && !isNaN(q.lon); });
+        if (p.length) tracks.push({ name: name || 'Imported track', pts: p });
+      });
     });
     return { marks: marks, tracks: tracks };
   }
@@ -121,6 +131,51 @@
     return parseKmlDoc(doc);
   }
 
-  var api = { buildKml: buildKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
+  // Export a Find session (points + found status) as KML. Re-importable by this app.
+  function buildFindKml(session, opts) {
+    opts = opts || {};
+    var pts = session.points || [];
+    var nFound = pts.filter(function (p) { return p.status; }).length;
+    var out = ['<?xml version="1.0" encoding="UTF-8"?>', '<kml xmlns="http://www.opengis.net/kml/2.2">', '<Document>'];
+    out.push('<name>' + esc(opts.name || session.name || 'Mistletoe find session') + '</name>');
+    out.push('<description>Find session exported ' + esc(fmtLocal(Date.now())) + ' - ' + nFound + ' of ' + pts.length + ' found/treated</description>');
+    ['L', 'R'].forEach(function (s) {
+      out.push('<Style id="mark' + s + '"><IconStyle><color>' + COLOURS[s] + '</color><scale>1.2</scale>' +
+        '<Icon><href>' + ICON + '</href></Icon></IconStyle><LabelStyle><color>' + COLOURS[s] + '</color></LabelStyle></Style>');
+    });
+    out.push('<Style id="markU"><IconStyle><color>ffcccccc</color><scale>1.2</scale><Icon><href>' + ICON + '</href></Icon></IconStyle></Style>');
+    out.push('<Style id="found"><IconStyle><color>ff03b698</color><scale>1.0</scale><Icon><href>' + ICON + '</href></Icon></IconStyle>' +
+      '<LabelStyle><color>ff03b698</color></LabelStyle></Style>');
+    out.push('<Style id="trackStyle"><LineStyle><color>ff03b698</color><width>3</width></LineStyle></Style>');
+    out.push('<Folder><name>Marks</name>');
+    pts.forEach(function (p, i) {
+      var nm = p.name || ((p.side === 'L' ? 'L-' : p.side === 'R' ? 'R-' : 'M-') + (p.n || i + 1));
+      var status = p.status || 'not found';
+      var desc = 'Side: ' + (p.side === 'L' ? 'LEFT' : p.side === 'R' ? 'RIGHT' : 'unknown') + '\nStatus: ' + status +
+        (p.foundTs ? '\nFound: ' + fmtLocal(p.foundTs) + ' (' + new Date(p.foundTs).toISOString() + ')' : '');
+      out.push('<Placemark><name>' + esc(nm) + '</name><description>' + esc(desc) + '</description>');
+      if (p.ts) out.push('<TimeStamp><when>' + new Date(p.ts).toISOString() + '</when></TimeStamp>');
+      out.push('<styleUrl>#' + (p.status ? 'found' : 'mark' + (p.side || 'U')) + '</styleUrl>');
+      out.push('<ExtendedData><Data name="side"><value>' + (p.side || '') + '</value></Data>' +
+        '<Data name="n"><value>' + (p.n || '') + '</value></Data>' +
+        '<Data name="accuracy"><value>' + (p.acc == null ? '' : p.acc) + '</value></Data>' +
+        '<Data name="ts"><value>' + (p.ts || '') + '</value></Data>' +
+        '<Data name="found"><value>' + (p.status ? 1 : 0) + '</value></Data>' +
+        '<Data name="status"><value>' + (p.status || '') + '</value></Data>' +
+        '<Data name="foundTs"><value>' + (p.foundTs || '') + '</value></Data></ExtendedData>');
+      out.push('<Point><coordinates>' + p.lon.toFixed(7) + ',' + p.lat.toFixed(7) + ',0</coordinates></Point></Placemark>');
+    });
+    out.push('</Folder>');
+    var tr = session.track || [];
+    if (tr.length >= 2) {
+      out.push('<Placemark><name>Search track</name><styleUrl>#trackStyle</styleUrl><LineString><tessellate>1</tessellate><coordinates>');
+      out.push(tr.map(function (q) { return q.lon.toFixed(7) + ',' + q.lat.toFixed(7) + ',0'; }).join(' '));
+      out.push('</coordinates></LineString></Placemark>');
+    }
+    out.push('</Document></kml>');
+    return out.join('\n');
+  }
+
+  var api = { buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KML = api;
 })(typeof self !== 'undefined' ? self : this);
