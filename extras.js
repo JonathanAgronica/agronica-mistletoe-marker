@@ -112,7 +112,7 @@
     FAQ.forEach(function (e) { var b = el('button', 'qchip', e.label); b.type = 'button'; b.setAttribute('data-faq', e.id); b.onclick = function () { ask(e.label); }; chips.appendChild(b); });
     var cc = el('button', 'qchip contact', 'Contact Agronica'); cc.type = 'button'; cc.id = 'helpChipContact'; cc.onclick = openAbout; chips.appendChild(cc);
     $('helpForm').onsubmit = function (e) { e.preventDefault(); var i = $('helpInput'); var q = i.value; i.value = ''; ask(q); };
-    addMsg('bot', "G'day! I'm the Mistletoe Marker helper. Ask me how something works, or tap a topic below. I work offline.");
+    addMsg('bot', "G'day, I'm Macca, the Mistletoe Marker Helper! Ask me how something works, or tap a topic below. I work offline.");
   }
   function openHelp() { buildHelp(); $('help').classList.remove('hidden'); setTimeout(function () { chatLog.scrollTop = chatLog.scrollHeight; }, 50); }
   function closeHelp() { var h = $('help'); if (h) h.classList.add('hidden'); }

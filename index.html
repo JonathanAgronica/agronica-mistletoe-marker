@@ -52,7 +52,7 @@
 <div id="views">
   <!-- ============ MARK ============ -->
   <section id="viewMark" class="view active" aria-label="Mark mode">
-    <div class="toprow"><button id="aboutLink" class="mini-link js-about" type="button">About</button><img src="img/agronica-logo.svg" alt="" class="brand" aria-hidden="true"><button id="helpFab" class="help-fab js-help" type="button" aria-label="Help"><img src="img/helper.png" alt="" width="40" height="40"><b>?</b></button></div>
+    <div class="toprow"><button id="aboutLink" class="mini-link js-about" type="button">About</button><img src="img/agronica-logo.svg" alt="" class="brand" aria-hidden="true"><button id="helpFab" class="help-fab js-help" type="button" aria-label="Ask Macca, the Mistletoe Marker Helper" title="Ask Macca"><img src="img/helper.png" alt="" width="40" height="40"><b>?</b></button></div>
     <div class="top">
       <div id="info" class="card">
         <div class="row"><span>Lat</span><b id="lat">–</b></div>
@@ -80,7 +80,7 @@
 
   <!-- ============ FIND ============ -->
   <section id="viewFind" class="view" aria-label="Find mode">
-    <div class="toprow"><button id="aboutLinkF" class="mini-link js-about" type="button">About</button><img src="img/agronica-logo.svg" alt="" class="brand" aria-hidden="true"><button id="helpFabF" class="help-fab js-help" type="button" aria-label="Help"><img src="img/helper.png" alt="" width="40" height="40"><b>?</b></button></div>
+    <div class="toprow"><button id="aboutLinkF" class="mini-link js-about" type="button">About</button><img src="img/agronica-logo.svg" alt="" class="brand" aria-hidden="true"><button id="helpFabF" class="help-fab js-help" type="button" aria-label="Ask Macca, the Mistletoe Marker Helper" title="Ask Macca"><img src="img/helper.png" alt="" width="40" height="40"><b>?</b></button></div>
     <div class="scroll">
       <div id="target" class="card target empty">
         <div class="t-empty">
@@ -178,7 +178,7 @@
     <button id="exportBtn" class="act"><svg class="ic"><use href="#i-share"/></svg>Export / Share KML</button>
     <button id="importBtn" class="act"><svg class="ic"><use href="#i-upload"/></svg>Import KML</button>
     <button id="menuAbout" class="act"><svg class="ic"><use href="#i-globe"/></svg>About Agronica</button>
-    <button id="menuHelp" class="act"><svg class="ic"><use href="#i-help"/></svg>Help</button>
+    <button id="menuHelp" class="act"><svg class="ic"><use href="#i-help"/></svg>Ask Macca</button>
     <button id="clearBtn" class="act danger"><svg class="ic"><use href="#i-trash"/></svg>New session (clear all)</button>
     <input type="file" id="importFile" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml,*/*" hidden>
   </div>
@@ -192,10 +192,10 @@
   <div class="sheet-head"><b>About Agronica</b><button id="closeAbout" class="soft small"><svg class="ic"><use href="#i-x"/></svg><span>Close</span></button></div>
   <div id="aboutBody"></div>
 </div>
-<div id="help" class="hidden" role="dialog" aria-label="Help">
+<div id="help" class="hidden" role="dialog" aria-label="Macca the Mistletoe Marker Helper">
   <div class="help-back" id="helpBack"></div>
   <div class="help-panel">
-    <div class="help-head"><img src="img/helper.png" alt="" width="44" height="44"><div><b>Mistletoe helper</b><small>Ask about the app - works offline</small></div><button id="closeHelp" class="sq small" aria-label="Close help"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <div class="help-head"><img src="img/helper.png" alt="" width="44" height="44"><div><b>Macca the Mistletoe Marker Helper</b><small>Ask about the app - works offline</small></div><button id="closeHelp" class="sq small" aria-label="Close help"><svg class="ic"><use href="#i-x"/></svg></button></div>
     <div id="helpLog" aria-live="polite"></div>
     <div id="helpChips" class="qchips"></div>
     <form id="helpForm" autocomplete="off"><input id="helpInput" type="text" placeholder="Type a question..." aria-label="Your question" enterkeyhint="send"><button type="submit" class="start" id="helpSend">Ask</button></form>
