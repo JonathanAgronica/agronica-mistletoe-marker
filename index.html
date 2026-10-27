@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1f2a5a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mistletoe Marker">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+<title>Agronica Mistletoe Marker</title>
+</head>
+<body>
+<header>
+  <img src="icons/logo.png" alt="Agronica" class="logo">
+  <div class="title">Agronica<br><span>Mistletoe Marker</span></div>
+  <div id="status" class="pill off">STOPPED</div>
+</header>
+
+<main>
+  <section id="info">
+    <div class="row"><span>Lat</span><b id="lat">–</b></div>
+    <div class="row"><span>Lon</span><b id="lon">–</b></div>
+    <div class="row"><span>Accuracy</span><b id="acc">–</b></div>
+    <div class="row"><span>Track pts</span><b id="npts">0</b></div>
+    <div class="row"><span>Marks</span><b id="nmarks">0 (L0 / R0)</b></div>
+  </section>
+
+  <section id="controls">
+    <button id="startStop" class="start">START</button>
+    <button id="undo" class="ghost">UNDO LAST</button>
+    <button id="menuBtn" class="ghost">MENU</button>
+  </section>
+  <div id="msg"></div>
+</main>
+
+<section id="markBtns">
+  <button id="btnL" class="mark left"><span>LEFT</span><small id="lastL"></small></button>
+  <button id="btnR" class="mark right"><span>RIGHT</span><small id="lastR"></small></button>
+</section>
+<div id="flash"></div>
+
+<div id="sheet" class="hidden">
+  <div class="sheet-head">
+    <b>Menu</b><button id="closeSheet" class="ghost small">Close</button>
+  </div>
+  <div class="actions">
+    <button id="exportBtn" class="act">Export / Share KML</button>
+    <button id="importBtn" class="act">Import KML</button>
+    <button id="clearBtn" class="act danger">New session (clear all)</button>
+    <input type="file" id="importFile" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml,*/*" hidden>
+  </div>
+  <canvas id="plot" width="600" height="300"></canvas>
+  <div class="sheet-head"><b>Marks</b><span id="listCount"></span></div>
+  <ul id="list"></ul>
+</div>
+<script src="kml.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
