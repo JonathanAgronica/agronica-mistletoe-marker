@@ -7,7 +7,7 @@ Live: https://jonathanagronica.github.io/agronica-mistletoe-marker/
 ## Modes (bottom tabs)
 **Mark** – press START, then the huge LEFT / RIGHT buttons to drop a GPS mark. Menu: export/share KML, import KML, clear.
 
-**Other Left / Other Right** (Mark tab, under the big buttons) – opens a quick bottom sheet: *Broken irrigation*, *Phytophthora treatment*, *Nutritional issue* (or Cancel). Records a mark at the position where the button was tapped, e.g. `L-5 Broken irrigation`. KML export uses a distinct icon colour/shape per category (`cat-irrigation` cyan water, `cat-phytophthora` purple triangle, `cat-nutrition` pink square) and writes `Category:` in the description plus `cat` in ExtendedData; import restores it. Shown in the marks list and maps.
+**Other Left / Other Right** (Mark tab, under the big buttons) – opens a quick bottom sheet: *Broken irrigation*, *Phytophthora treatment*, *Nutritional issue* (or Cancel). Records a mark at the position where the button was tapped, e.g. `L-5 Broken irrigation`. KML export uses a distinct icon colour/shape per category (8 styles: `markL`/`markR` blue/orange circles, and `cat-<type>-L`/`-R` dark/light shades: irrigation cyan water drop, phytophthora purple triangle, nutrition pink square; older `#cat-<type>` exports still import) and writes `Category:` in the description plus `cat` in ExtendedData; import restores it. Shown in the marks list and maps.
 
 **Find** – load a KML (file picker, drag & drop, "open with"/share to the installed app on Android/Chromium; the app's own export or any KML with points). Press START TRACKING:
 - nearest unfound mark: distance, bearing arrow (device compass if available – iOS asks permission – otherwise direction of travel), LEFT/RIGHT label (as marked; for foreign points without a side it is relative to your heading)
@@ -16,7 +16,7 @@ Live: https://jonathanagronica.github.io/agronica-mistletoe-marker/
 - sessions persist in localStorage; **Export found** writes a KML with found/treated status (re-importable)
 
 ## Files
-`index.html`, `style.css`, `app.js` (shell, Mark mode, shared GPS, wake lock), `find.js` (Find mode), `geo.js` (haversine/bearing/alert logic), `kml.js` (KML build/parse), `manifest.json`, `img/` (Agronica website photos as dark-overlaid backgrounds, from agronicaag.com), `sw.js` (service worker, cache `mistletoe-marker-v4`), `icons/`. Paths are relative so the app works under a subpath.
+`index.html`, `style.css`, `app.js` (shell, Mark mode, shared GPS, wake lock), `find.js` (Find mode), `geo.js` (haversine/bearing/alert logic), `kml.js` (KML build/parse), `manifest.json`, `img/` (Agronica website photos as dark-overlaid backgrounds and the white `agronica-logo.svg` watermark, from agronicaag.com), `sw.js` (service worker, cache `mistletoe-marker-v6`), `icons/`. Paths are relative so the app works under a subpath.
 
 ## Tests
 ```
