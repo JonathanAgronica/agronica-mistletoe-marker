@@ -12,10 +12,11 @@
       var s = JSON.parse(localStorage.getItem(KEY));
       if (s && Array.isArray(s.sessions)) {
         s.settings = Object.assign({ radius: 30, vibrate: true, beep: true, voice: false, mapMode: 'near' }, s.settings || {});
+        s.settings.cats = Object.assign({}, s.settings.cats || {});
         return s;
       }
     } catch (e) { /* ignore */ }
-    return { sessions: [], activeId: null, settings: { radius: 30, vibrate: true, beep: true, voice: false, mapMode: 'near' } };
+    return { sessions: [], activeId: null, settings: { radius: 30, vibrate: true, beep: true, voice: false, mapMode: 'near', cats: {} } };
   }
   var saveT = 0;
   function save(force) {
@@ -47,6 +48,10 @@
     clearTimeout(fmT);
     if (t) fmT = setTimeout(function () { $('findMsg').textContent = ''; }, ms || 5000);
   }
+  // category filter: default all on; points without a category count as "mistletoe"
+  var FCATS = [{ id: 'mistletoe', label: 'Mistletoe', color: '#98b603' }].concat(KML.CATS);
+  function catOn(id) { return settings.cats[id || 'mistletoe'] !== false; }
+  function vis(s) { return s ? s.points.filter(function (p) { return catOn(p.cat); }) : []; }
   function pointId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
   // ---------- loading KML ----------
@@ -55,7 +60,7 @@
     try { res = KML.parseKml(text); } catch (e) { fmsg('Could not read KML: ' + e.message, 7000); return false; }
     if (!res.marks.length) { fmsg('No points found in that KML' + (res.tracks.length ? ' (it only has lines)' : ''), 7000); return false; }
     var pts = res.marks.map(function (m, i) {
-      return { id: pointId(), n: m.n || (i + 1), name: m.name || ((m.side || 'M') + '-' + (m.n || i + 1)), side: m.side || '',
+      return { id: pointId(), n: m.n || (i + 1), name: m.name || ((m.side || 'M') + '-' + (m.n || i + 1) + (m.cat ? ' ' + KML.catLabel(m.cat) : '')), side: m.side || '', cat: m.cat || '',
         lat: m.lat, lon: m.lon, ts: m.ts || 0, status: m.status || '', foundTs: m.foundTs || 0 };
     });
     var s = { id: 's' + Date.now().toString(36), name: (name || 'KML').replace(/\.(kml|xml)$/i, ''), created: Date.now(),
@@ -132,14 +137,14 @@
     2: { vib: [150, 100, 150], beeps: [[1040, 0, 0.14], [1040, 0.22, 0.14]] },
     3: { vib: [400, 100, 400, 100, 400], beeps: [[1320, 0, 0.25], [1320, 0.33, 0.25], [1760, 0.66, 0.5]] }
   };
-  function fireAlert(level, side, dist) {
+  function fireAlert(level, side, dist, cat) {
     var p = PATTERNS[level];
     if (settings.vibrate && navigator.vibrate) { try { navigator.vibrate(p.vib); } catch (e) {} }
     if (settings.beep) { unlockAudio(); p.beeps.forEach(function (b) { beep(b[0], b[1], b[2], 0.35); }); }
     if (settings.voice && 'speechSynthesis' in window) {
       try {
         speechSynthesis.cancel();
-        var u = new SpeechSynthesisUtterance(GEO.speechText(side, dist, level));
+        var u = new SpeechSynthesisUtterance(GEO.speechText(side, dist, level, cat ? KML.catLabel(cat) : ''));
         speechSynthesis.speak(u);
       } catch (e) { /* ignore */ }
     }
@@ -165,8 +170,8 @@
         if (s.track.length > TRACK_MAX) s.track.splice(0, s.track.length - TRACK_MAX);
         save(false);
       }
-      var a = GEO.nextAlert(s.points, pos, settings.radius, alerted);
-      if (a) { fireAlert(a.level, a.p.side, a.dist); }
+      var a = GEO.nextAlert(vis(s), pos, settings.radius, alerted);
+      if (a) { fireAlert(a.level, a.p.side, a.dist, a.p.cat); }
     }
     pump(false);
   }
@@ -181,9 +186,10 @@
   }
   function targetPoint() {
     var s = active(); if (!s) return null;
-    if (pos) return GEO.nearestUnfound(s.points, pos);
+    var pts = vis(s);
+    if (pos) return GEO.nearestUnfound(pts, pos);
     // no fix yet: first unfound point
-    for (var i = 0; i < s.points.length; i++) if (!s.points[i].status) return { p: s.points[i], dist: NaN, brg: NaN };
+    for (var i = 0; i < pts.length; i++) if (!pts[i].status) return { p: pts[i], dist: NaN, brg: NaN };
     return null;
   }
 
@@ -193,7 +199,7 @@
     if (rafId) return;
     rafId = requestAnimationFrame(function () { rafId = 0; if (dirty) { dirty = false; renderLive(force); } });
   }
-  function renderAll() { renderSessions(); renderSettings(); pump(true); }
+  function renderAll() { renderSessions(); renderSettings(); renderCats(); pump(true); }
   function renderSessions() {
     var sel = $('sessSel'); sel.innerHTML = '';
     if (!F.sessions.length) { var o = document.createElement('option'); o.textContent = '(no sessions - load a KML)'; sel.appendChild(o); sel.disabled = true; return; }
@@ -211,6 +217,22 @@
     $('tgVib').checked = !!settings.vibrate; $('tgBeep').checked = !!settings.beep; $('tgVoice').checked = !!settings.voice;
     $('mapMode').textContent = settings.mapMode === 'all' ? 'Fit all' : 'Nearby';
   }
+  function renderCats() {
+    var box = $('catFilter'), s = active(); box.innerHTML = '';
+    var present = {};
+    if (s) s.points.forEach(function (p) { var k = p.cat || 'mistletoe'; present[k] = (present[k] || 0) + 1; });
+    FCATS.forEach(function (c) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'fchip' + (catOn(c.id) ? ' on' : '');
+      b.style.setProperty('--c', c.color); b.setAttribute('data-cat', c.id); b.setAttribute('aria-pressed', catOn(c.id));
+      b.innerHTML = '<i></i><span></span><em></em>'; b.querySelector('span').textContent = c.label; b.querySelector('em').textContent = present[c.id] || 0;
+      b.onclick = function () {
+        settings.cats[c.id] = !catOn(c.id); alerted = {}; save(true); renderCats(); dirty = true; listAt = 0; pump(true);
+      };
+      box.appendChild(b);
+    });
+    var on = FCATS.filter(function (c) { return catOn(c.id); }).length;
+    $('catHint').textContent = on === FCATS.length ? 'all categories' : on + ' of ' + FCATS.length + ' selected';
+  }
   function setArrow(deg) {
     var d = GEO.diffAngle(arrowRot, deg); arrowRot += d;
     $('arrow').style.transform = 'rotate(' + arrowRot + 'deg)';
@@ -218,9 +240,10 @@
   function renderLive(force) {
     var s = active();
     var tgt = $('target');
-    var total = s ? s.points.length : 0;
-    var found = s ? s.points.filter(function (p) { return p.status; }).length : 0;
-    var treated = s ? s.points.filter(function (p) { return p.status === 'treated'; }).length : 0;
+    var vp = vis(s);
+    var total = vp.length;
+    var found = vp.filter(function (p) { return p.status; }).length;
+    var treated = vp.filter(function (p) { return p.status === 'treated'; }).length;
     $('progTxt').textContent = found + ' of ' + total + ' found';
     $('progSub').textContent = treated ? treated + ' treated' : '';
     $('progBar').style.width = total ? (100 * found / total) + '%' : '0%';
@@ -233,6 +256,8 @@
     if (t) {
       var p = t.p;
       $('tName').textContent = p.name;
+      var tc = $('tCat'), cd = p.cat && KML.catById(p.cat);
+      tc.textContent = cd ? cd.label : ''; tc.style.display = cd ? '' : 'none'; if (cd) tc.style.setProperty('--c', cd.color);
       var chip = $('tSide');
       var rel = (hd.h != null && !isNaN(t.brg)) ? GEO.diffAngle(hd.h, t.brg) : null;
       var side = p.side;
@@ -258,19 +283,22 @@
     var ul = $('ptList'), s = active();
     ul.innerHTML = '';
     if (!s) { $('ptCount').textContent = ''; return; }
-    var rows = pos ? GEO.withDistances(s.points, pos) : s.points.map(function (p) { return { p: p, dist: NaN, brg: NaN }; });
+    var vpts = vis(s);
+    var rows = pos ? GEO.withDistances(vpts, pos) : vpts.map(function (p) { return { p: p, dist: NaN, brg: NaN }; });
     rows.sort(function (a, b) {
       if (!!a.p.status !== !!b.p.status) return a.p.status ? 1 : -1;      // unfound first
       return pos ? a.dist - b.dist : (a.p.n - b.p.n);
     });
-    $('ptCount').textContent = s.points.length + ' total';
+    $('ptCount').textContent = vpts.length + (vpts.length === s.points.length ? '' : ' of ' + s.points.length) + ' total';
     var hd = currentHeading();
     rows.slice(0, 300).forEach(function (r) {
       var li = document.createElement('li'); if (r.p.status) li.className = 'done';
       var chip = document.createElement('span'); chip.className = 'chip sm ' + (r.p.side || 'U'); chip.textContent = r.p.side || '?';
       var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.p.name;
       var sub = document.createElement('small');
-      sub.textContent = r.p.status ? r.p.status + (r.p.foundTs ? ' ' + KML.fmtLocal(r.p.foundTs).slice(11, 16) : '') : '';
+      var rc = r.p.cat && KML.catById(r.p.cat);
+      sub.textContent = (rc ? rc.label + (r.p.status ? ' · ' : '') : '') + (r.p.status ? r.p.status + (r.p.foundTs ? ' ' + KML.fmtLocal(r.p.foundTs).slice(11, 16) : '') : '');
+      if (rc) { sub.style.color = rc.color; chip.style.boxShadow = '0 0 0 3px ' + rc.color; }
       nm.appendChild(sub);
       var d = document.createElement('span'); d.className = 'dst'; d.textContent = isNaN(r.dist) ? '' : GEO.fmtDist(r.dist);
       var b = document.createElement('button'); b.className = 'sq small ' + (r.p.status ? 'on' : '');
@@ -292,11 +320,11 @@
     var g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     if (!s || !s.points.length) { g.fillStyle = '#ffffff88'; g.font = '14px system-ui,sans-serif'; g.fillText('No points loaded', 16, 28); return; }
     // choose the set to fit
-    var fit = [], t = pos ? GEO.nearestUnfound(s.points, pos) : null;
-    if (settings.mapMode === 'all' || !pos) { fit = s.points.slice(); if (pos) fit.push(pos); }
+    var vpts = vis(s), fit = [], t = pos ? GEO.nearestUnfound(vpts, pos) : null;
+    if (settings.mapMode === 'all' || !pos) { fit = vpts.slice(); if (pos) fit.push(pos); }
     else {
       fit.push(pos);
-      var near = GEO.withDistances(s.points.filter(function (p) { return !p.status; }), pos).slice(0, 4);
+      var near = GEO.withDistances(vpts.filter(function (p) { return !p.status; }), pos).slice(0, 4);
       near.forEach(function (n) { fit.push(n.p); });
     }
     var ref = fit[0], minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
@@ -324,11 +352,14 @@
     // target line
     if (pos && t) { var a = P(pos), b = P(t.p); g.strokeStyle = '#ffffff99'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
     // points
-    s.points.forEach(function (q) {
+    vpts.forEach(function (q) {
       var p = P(q); if (p[0] < -10 || p[1] < -10 || p[0] > W + 10 || p[1] > H + 10) return;
       var isT = t && t.p === q;
       g.beginPath(); g.arc(p[0], p[1], isT ? 9 : 6, 0, 7);
       if (q.status) { g.fillStyle = COL.F + '55'; g.fill(); g.strokeStyle = COL.F; g.lineWidth = 2; g.stroke(); }
+      else if (q.cat && KML.catById(q.cat)) {
+        g.fillStyle = KML.catById(q.cat).color; g.fill(); g.strokeStyle = isT ? '#fff' : COL[q.side || 'U']; g.lineWidth = isT ? 3.5 : 3; g.stroke();
+      }
       else { g.fillStyle = COL[q.side || 'U']; g.fill(); g.strokeStyle = isT ? '#fff' : '#000a'; g.lineWidth = isT ? 3 : 1.5; g.stroke(); }
     });
     // you
@@ -394,10 +425,10 @@
   });
   $('testAlert').onclick = function () {
     unlockAudio(); enableCompass();
-    var s = active(), side = (s && s.points[0] && s.points[0].side) || 'L';
-    fireAlert(1, side, settings.radius);
-    setTimeout(function () { fireAlert(2, side, settings.radius / 2); }, 1500);
-    setTimeout(function () { fireAlert(3, side, 3); }, 3200);
+    var s = active(), p0 = s && s.points[0], side = (p0 && p0.side) || 'L', cat = p0 && p0.cat;
+    fireAlert(1, side, settings.radius, cat);
+    setTimeout(function () { fireAlert(2, side, settings.radius / 2, cat); }, 1500);
+    setTimeout(function () { fireAlert(3, side, 3, cat); }, 3200);
     fmsg('Test: radius, half-radius, arrived' + (navigator.vibrate ? '' : ' (vibration not supported on this device)'), 5000);
   };
   $('mapMode').onclick = function () { settings.mapMode = settings.mapMode === 'all' ? 'near' : 'all'; save(true); renderSettings(); pump(true); };

@@ -19,7 +19,7 @@ button:active{transform:scale(.97);filter:brightness(1.2)}
 
 /* ---------- header ---------- */
 header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));
-  background:linear-gradient(180deg,#242424,#1a1a1a);border-bottom:1px solid var(--line);flex:none}
+  background:linear-gradient(180deg,#00000099,#000000c4),url(img/bg-harvester.webp) 58% 64%/cover #1a1a1a;border-bottom:2px solid var(--orange);flex:none}
 .logo{width:42px;height:42px;border-radius:12px;box-shadow:0 0 0 2px var(--orange),var(--shadow);background:#fff}
 .title{flex:1;font-weight:800;font-size:17px;line-height:1.1;letter-spacing:.2px;display:flex;flex-direction:column}
 .title span{color:var(--orange);font-weight:700;font-size:13px;letter-spacing:.3px}
@@ -34,8 +34,11 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:ma
 #views{flex:1;min-height:0;position:relative}
 .view{position:absolute;inset:0;display:none;flex-direction:column;opacity:0}
 .view.active{display:flex;animation:viewIn .3s var(--ease) forwards}
+/* Agronica photo backgrounds (agronicaag.com) under dark gradients so text/buttons stay readable in sun */
+#viewMark{background:linear-gradient(180deg,#0b0b0bc7 0%,#0b0b0b6b 38%,#0b0b0b8f 100%),url(img/bg-harvester.webp) 58% 62%/cover no-repeat #141414}
+#viewFind{background:linear-gradient(180deg,#0b0b0bb8,#0b0b0b8f 50%,#0b0b0bc7),url(img/bg-orchard-sunset.webp) 50% 30%/cover no-repeat #141414}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+.card{background:#1c1c1cf2;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
 .card-title{font-weight:800;font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;display:flex;
   justify-content:space-between;align-items:center}
 
@@ -54,6 +57,11 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:ma
 .sq.small{width:40px;height:40px;border-radius:12px}
 .sq.on{background:var(--lime);color:var(--ink);border-color:transparent}
 #msg{min-height:22px;font-size:13px;margin:6px 4px 0;color:var(--orange)}
+#otherBtns{flex:none;display:flex;gap:12px;padding:0 12px 10px}
+.other{flex:1 1 0;min-width:0;min-height:60px;border-radius:18px;font-weight:900;font-size:19px;letter-spacing:.4px;color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px #0009}
+.other.left{background:#142665;box-shadow:inset 0 0 0 3px var(--blue),0 4px 14px #0009}
+.other.right{background:#4a3400;box-shadow:inset 0 0 0 3px var(--orange),0 4px 14px #0009}
 #markBtns{flex:1;display:flex;gap:12px;padding:6px 12px 12px;min-height:0}
 .mark{flex:1 1 0;min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   font-weight:900;border-radius:28px;border:0;box-shadow:inset 0 0 0 4px #ffffff55,0 8px 24px #000a,inset 0 -10px 30px #0003}
@@ -66,6 +74,7 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:ma
 #flash{position:fixed;inset:0;pointer-events:none;opacity:0;display:flex;align-items:center;justify-content:center;
   font-size:30vw;font-weight:900;color:#fff;transition:opacity .45s;z-index:20}
 #flash.show{opacity:.92;transition:none}
+#flash.sm{font-size:11vw;text-align:center;padding:0 8vw;line-height:1.1}
 #flash.L{background:var(--blue)}#flash.R{background:var(--orange);color:var(--ink)}
 
 /* ---------- Find view ---------- */
@@ -150,10 +159,12 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 .tabs .ic{width:26px;height:26px}
 
 /* ---------- menu sheet / toast ---------- */
-#sheet{position:fixed;inset:0;background:var(--bg);z-index:30;padding:12px;overflow:auto;padding-top:max(12px,env(safe-area-inset-top));animation:sheetIn .3s var(--ease)}
+#sheet{position:fixed;inset:0;background:linear-gradient(180deg,#0b0b0bd1,#0b0b0bc4 40%,#0b0b0be6),url(img/bg-macadamia-grove.webp) 50% 40%/cover no-repeat fixed var(--bg);z-index:30;padding:12px;overflow:auto;padding-top:max(12px,env(safe-area-inset-top));animation:sheetIn .3s var(--ease)}
 @keyframes sheetIn{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
 .hidden{display:none!important}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin:10px 0}
+#sheet>.sheet-head:first-child{margin:0 0 12px;padding:26px 14px 14px;border-radius:18px;border:1px solid var(--line);font-size:20px;
+  background:linear-gradient(180deg,#00000066,#000000cc),url(img/harvest-nuts.webp) 50% 40%/cover #1c1c1c;box-shadow:var(--shadow)}
 .actions{display:grid;gap:10px}
 .act{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);padding:16px;font-weight:700;font-size:16px;border-radius:16px;box-shadow:var(--shadow);text-align:left}
 .act.danger{background:#3b1a20;color:#ff9aa5}
@@ -172,3 +183,29 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
   .mark span{font-size:min(10vw,24vh)}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Other-issue category sheet ---------- */
+#catSheet{position:fixed;inset:0;z-index:35;display:flex;flex-direction:column;justify-content:flex-end}
+.cat-back{position:absolute;inset:0;background:#000b}
+.cat-panel{position:relative;background:#1b1b1b;border-top:4px solid var(--blue);border-radius:26px 26px 0 0;padding:16px 14px max(16px,env(safe-area-inset-bottom));
+  display:grid;gap:10px;box-shadow:0 -10px 40px #000c;animation:catUp .25s var(--ease)}
+#catSheet.sideR .cat-panel{border-top-color:var(--orange)}
+@keyframes catUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.cat-title{display:flex;flex-direction:column;gap:2px;margin:0 4px 2px}
+.cat-title b{font-size:22px;font-weight:900}.cat-title span{font-size:14px;color:var(--dim)}
+.cat-opt{display:flex;align-items:center;gap:14px;min-height:68px;padding:0 18px;border-radius:18px;background:var(--card2);color:#fff;
+  font-weight:800;font-size:20px;text-align:left;box-shadow:inset 0 0 0 3px var(--c)}
+.cat-opt i{width:22px;height:22px;border-radius:50%;background:var(--c);flex:none}
+.cat-cancel{min-height:58px;border-radius:18px;background:transparent;color:var(--dim);font-weight:800;font-size:18px;box-shadow:inset 0 0 0 2px var(--line)}
+.t-id{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cat-tag{align-self:flex-start;font-size:13px;font-weight:800;padding:2px 10px;border-radius:99px;color:#fff;background:#0006;box-shadow:inset 0 0 0 2px var(--c,#555)}
+.cat-tag:empty{display:none}
+.cat-filter{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fchip{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 12px;border-radius:14px;background:var(--card2);color:var(--dim);font-weight:700;font-size:14px;text-align:left;
+  box-shadow:inset 0 0 0 2px var(--line)}
+.fchip i{width:14px;height:14px;border-radius:50%;background:var(--c);flex:none;opacity:.35}
+.fchip span{flex:1;min-width:0;line-height:1.15}
+.fchip em{font-style:normal;font-size:12px;opacity:.7}
+.fchip.on{color:#fff;box-shadow:inset 0 0 0 2px var(--c)}.fchip.on i{opacity:1}
+.legend .c-irrigation{background:#00c8ff}.legend .c-phytophthora{background:#b266ff}.legend .c-nutrition{background:#ff5ca8}
+#list .catlbl{font-size:13px}

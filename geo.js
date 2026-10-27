@@ -97,8 +97,8 @@
     return n + (n === 1 ? ' metre' : ' metres');
   }
   function sideWord(side) { return side === 'L' ? 'left' : side === 'R' ? 'right' : ''; }
-  function speechText(side, dist, level) {
-    var s = 'Mistletoe' + (sideWord(side) ? ' ' + sideWord(side) : '');
+  function speechText(side, dist, level, label) {
+    var s = (label || 'Mistletoe') + (sideWord(side) ? ' ' + sideWord(side) : '');
     return level >= 3 ? s + ', arrived' : s + ', ' + spokenDist(dist);
   }
   // relative direction wording for an arrow angle (-180..180, 0 = straight ahead)

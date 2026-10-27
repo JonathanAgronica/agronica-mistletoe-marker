@@ -58,6 +58,55 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   const big = await page.$eval('#btnL', e => { const r = e.getBoundingClientRect(); return [r.width, r.height]; });
   assert.ok(big[0] > 150 && big[1] > 250, 'LEFT button is huge: ' + big);
   await page.click('#undo');
+  // ----- Other Left / Other Right (category marks) -----
+  const ob = await page.$$eval('#otherBtns button', bs => bs.map(b => { const r = b.getBoundingClientRect(); return [b.textContent.trim(), r.width, r.height]; }));
+  assert.deepStrictEqual(ob.map(o => o[0]), ['Other Left', 'Other Right']);
+  assert.ok(ob.every(o => o[1] > 120 && o[2] >= 56), 'Other buttons are big enough to hit: ' + JSON.stringify(ob));
+  const bigH = await page.$eval('#btnL', e => e.getBoundingClientRect().height), othH = ob[0][2];
+  assert.ok(othH < bigH / 2, 'Other buttons are smaller than LEFT/RIGHT: ' + othH + ' vs ' + bigH);
+  const marksBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')).marks.length);
+  await page.click('#btnOL'); await sleep(300);
+  assert.ok(await page.$eval('#catSheet', e => !e.classList.contains('hidden')), 'category sheet opens');
+  assert.deepStrictEqual(await page.$$eval('.cat-opt', o => o.map(x => x.textContent.trim())), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue']);
+  assert.strictEqual(await txt('catCancel'), 'Cancel'); assert.strictEqual(await txt('catTitle'), 'Other Left');
+  assert.ok((await page.$$eval('.cat-opt', o => o.map(x => x.getBoundingClientRect().height))).every(h => h >= 60), 'big options');
+  await page.screenshot({ path: SHOTS + '/2b-mark-category-sheet.png' });
+  await page.click('#catCancel'); await sleep(200);          // cancel records nothing
+  assert.ok(await page.$eval('#catSheet', e => e.classList.contains('hidden')));
+  assert.strictEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')).marks.length), marksBefore);
+  // mark taken at the position where the button was tapped (even if we move before choosing)
+  await setPos(T0); await sleep(500);
+  await page.click('#btnOL'); await sleep(200);
+  await setPos(P(0, 25)); await sleep(700);
+  await page.click('.cat-opt[data-cat="irrigation"]'); await sleep(400);
+  await setPos(T0); await sleep(500);
+  await page.click('#btnOR'); await sleep(200); assert.strictEqual(await txt('catTitle'), 'Other Right');
+  await page.click('.cat-opt[data-cat="phytophthora"]'); await sleep(300);
+  await page.click('#btnOL'); await sleep(200); await page.click('.cat-opt[data-cat="nutrition"]'); await sleep(300);
+  const sess = await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')));
+  const oth = sess.marks.slice(marksBefore);
+  assert.deepStrictEqual(oth.map(m => [m.side, m.cat]), [['L', 'irrigation'], ['R', 'phytophthora'], ['L', 'nutrition']]);
+  assert.ok(/^L-\d+ Broken irrigation$/.test(oth[0].name) && /^R-\d+ Phytophthora treatment$/.test(oth[1].name) && /^L-\d+ Nutritional issue$/.test(oth[2].name), oth.map(m => m.name).join('|'));
+  assert.ok(Math.abs(oth[0].lat - T0.lat) < 2e-5, 'category mark uses the position at tap time');
+  assert.ok(/\+ 3 other$/.test(await txt('nmarks')), await txt('nmarks'));
+  // menu list shows the category; export carries styles/category and round-trips
+  await page.click('#menuBtn'); await sleep(400);
+  const lst = await page.$$eval('#list li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  assert.ok(lst.some(x => x.includes('Broken irrigation')) && lst.some(x => x.includes('Phytophthora treatment')) && lst.some(x => x.includes('Nutritional issue')), JSON.stringify(lst));
+  await page.screenshot({ path: SHOTS + '/2c-menu-categories.png' });
+  await page.click('#closeSheet');
+  const mkml = await page.evaluate(() => KML.buildKml(JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')), {}));
+  ['cat-irrigation', 'cat-phytophthora', 'cat-nutrition'].forEach(id => assert.ok(mkml.includes('<styleUrl>#' + id + '</styleUrl>'), id));
+  assert.ok(/Category: Broken irrigation/.test(mkml) && /<name>R-\d+ Phytophthora treatment<\/name>/.test(mkml));
+  const { DOMParser: DP } = require('@xmldom/xmldom');
+  const mrt = require('../kml.js').parseKml(mkml, DP);
+  assert.deepStrictEqual(mrt.marks.slice(-3).map(m => [m.side, m.cat]), [['L', 'irrigation'], ['R', 'phytophthora'], ['L', 'nutrition']]);
+  fs.writeFileSync('/tmp/cats.kml', require('../kml.js').buildKml({ marks: [
+    { side: 'L', n: 1, cat: 'irrigation', ...P(180, 40), acc: 4, ts: 1700000000000 },
+    { side: 'R', n: 2, cat: 'phytophthora', ...P(180, 120), acc: 4, ts: 1700000100000 },
+    { side: 'L', n: 3, cat: 'nutrition', ...P(180, 200), acc: 4, ts: 1700000200000 },
+    { side: 'R', n: 4, ...P(180, 300), acc: 4, ts: 1700000300000 }], track: [] }));
+  console.log('Other Left/Right category marks OK:', oth.map(m => m.name).join(' | '));
   await page.click('#startStop');
   console.log('Mark mode OK; LEFT button size', big.map(Math.round));
 
@@ -143,14 +192,49 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   assert.strictEqual(await txt('progTxt'), '2 of 3 found');
   console.log('Re-import of exported KML restores found status OK');
 
+  // ----- Find mode: category points, speech label and category filter -----
+  await (await page.$('#findFile')).uploadFile('/tmp/cats.kml'); await sleep(600);
+  assert.strictEqual(await txt('progTxt'), '0 of 4 found');
+  assert.strictEqual(await page.$$eval('#catFilter .fchip', c => c.length), 4);
+  assert.strictEqual(await page.$$eval('#catFilter .fchip.on', c => c.length), 4, 'all categories on by default');
+  await setPos(T0); await sleep(300);
+  await evs();
+  await page.click('#findStart'); await sleep(1800);
+  assert.strictEqual(await txt('tName'), 'L-1 Broken irrigation'); assert.strictEqual(await txt('tCat'), 'Broken irrigation');
+  const sp = (await evs()).filter(e => e[0] === 'say').map(e => e[1]);
+  assert.strictEqual(sp[0], 'Broken irrigation left, 40 metres', JSON.stringify(sp));
+  const rows2 = await page.$$eval('#ptList li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+  assert.ok(rows2.length === 4 && rows2.some(r => r.includes('Phytophthora treatment')) && rows2.some(r => r.includes('Nutritional issue')), JSON.stringify(rows2));
+  await page.screenshot({ path: SHOTS + '/8-find-categories.png' });
+  const chip = id => page.click('#catFilter .fchip[data-cat="' + id + '"]');
+  await chip('irrigation'); await sleep(500);
+  assert.strictEqual(await txt('progTxt'), '0 of 3 found'); assert.strictEqual(await txt('tName'), 'R-2 Phytophthora treatment');
+  assert.strictEqual(await page.$$eval('#ptList li', l => l.length), 3);
+  await chip('phytophthora'); await chip('mistletoe'); await sleep(500);
+  assert.strictEqual(await txt('progTxt'), '0 of 1 found'); assert.strictEqual(await txt('tName'), 'L-3 Nutritional issue');
+  assert.strictEqual(await txt('tCat'), 'Nutritional issue');
+  await evs(); await setPos(P(180, 190)); await sleep(700);            // 10 m from the nutrition point, others filtered out
+  const sp2 = (await evs()).filter(e => e[0] === 'say').map(e => e[1]);
+  assert.ok(sp2.length >= 1 && sp2.every(s => s.startsWith('Nutritional issue left')), JSON.stringify(sp2));
+  await page.screenshot({ path: SHOTS + '/8b-find-filtered.png' });
+  const saved2 = await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-find-v1')).settings.cats);
+  assert.deepStrictEqual(saved2, { irrigation: false, phytophthora: false, mistletoe: false });
+  await chip('irrigation'); await chip('phytophthora'); await chip('mistletoe'); await sleep(400);
+  assert.strictEqual(await txt('progTxt'), '0 of 4 found');
+  const fk2 = await page.evaluate(() => { const F = window.Find._debug().F; return KML.buildFindKml(F.sessions.find(s => s.id === F.activeId), {}); });
+  const frt = require('../kml.js').parseKml(fk2, DP);
+  assert.deepStrictEqual(frt.marks.map(m => m.cat), ['irrigation', 'phytophthora', 'nutrition', '']);
+  await page.click('#findStart'); await sleep(300);
+  console.log('Find categories + filter + speech OK');
+
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v3');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v4');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v3') && !swInfo.names.includes('mistletoe-marker-v2'));
-  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v4') && !swInfo.names.includes('mistletoe-marker-v3'));
+  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   await page.evaluate(async (kmlText) => {
     const fd = new FormData(); fd.append('kml', new File([kmlText], 'shared-block.kml', { type: 'application/vnd.google-earth.kml+xml' }));
     await fetch('./share-target', { method: 'POST', body: fd });

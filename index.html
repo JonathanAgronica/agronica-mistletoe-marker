@@ -65,6 +65,10 @@
       <button id="btnL" class="mark left"><span>LEFT</span><small id="lastL"></small></button>
       <button id="btnR" class="mark right"><span>RIGHT</span><small id="lastR"></small></button>
     </div>
+    <div id="otherBtns">
+      <button id="btnOL" class="other left" aria-label="Other issue on the left"><span>Other Left</span></button>
+      <button id="btnOR" class="other right" aria-label="Other issue on the right"><span>Other Right</span></button>
+    </div>
   </section>
 
   <!-- ============ FIND ============ -->
@@ -77,7 +81,7 @@
         </div>
         <div class="t-live">
           <div class="t-head">
-            <span id="tName" class="t-name">–</span>
+            <div class="t-id"><span id="tName" class="t-name">–</span><span id="tCat" class="cat-tag"></span></div>
             <span id="tSide" class="chip">–</span>
           </div>
           <div class="t-main">
@@ -116,6 +120,11 @@
       </div>
 
       <div class="card">
+        <div class="card-title">Find these <span id="catHint" class="dim small-txt"></span></div>
+        <div id="catFilter" class="cat-filter"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Alerts</div>
         <div class="field">
           <label for="radius">Alert radius <b id="radiusVal">30 m</b></label>
@@ -133,7 +142,7 @@
       <div class="card">
         <div class="card-title">Map <button id="mapMode" class="chip-btn">Nearby</button></div>
         <canvas id="map"></canvas>
-        <div class="legend"><i class="l"></i>Left <i class="r"></i>Right <i class="u"></i>Unknown <i class="f"></i>Found <i class="me"></i>You</div>
+        <div class="legend"><i class="l"></i>Left <i class="r"></i>Right <i class="u"></i>Unknown <i class="f"></i>Found <i class="me"></i>You<br><i class="c-irrigation"></i>Irrigation <i class="c-phytophthora"></i>Phytophthora <i class="c-nutrition"></i>Nutrition</div>
       </div>
 
       <div class="card">
@@ -164,6 +173,16 @@
   <canvas id="plot" width="600" height="300"></canvas>
   <div class="sheet-head"><b>Marks</b><span id="listCount" class="dim"></span></div>
   <ul id="list"></ul>
+</div>
+<div id="catSheet" class="hidden" role="dialog" aria-modal="true" aria-label="Other issue">
+  <div class="cat-back" id="catBack"></div>
+  <div class="cat-panel">
+    <div class="cat-title"><b id="catTitle">Other</b><span>What did you find?</span></div>
+    <button class="cat-opt" data-cat="irrigation" style="--c:#00c8ff"><i></i>Broken irrigation</button>
+    <button class="cat-opt" data-cat="phytophthora" style="--c:#b266ff"><i></i>Phytophthora treatment</button>
+    <button class="cat-opt" data-cat="nutrition" style="--c:#ff5ca8"><i></i>Nutritional issue</button>
+    <button id="catCancel" class="cat-cancel">Cancel</button>
+  </div>
 </div>
 <div id="toast" role="status"></div>
 <script src="geo.js"></script>

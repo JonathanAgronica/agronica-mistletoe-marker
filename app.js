@@ -127,22 +127,41 @@
 
   // ---------- marks ----------
   function nextN() { return state.marks.reduce(function (mx, m) { return Math.max(mx, m.n || 0); }, 0) + 1; }
-  function addMark(side) {
+  function haveFix() { return lastPos && Date.now() - lastPos.ts <= 30000; }
+  function addMark(side, cat, at) {
     if (!running) { msg('Press START first'); return; }
-    if (!lastPos || Date.now() - lastPos.ts > 30000) { msg('No GPS fix yet – mark not recorded', 5000); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return; }
-    var m = { side: side, n: nextN(), lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc, ts: Date.now() };
+    var p = at || lastPos;
+    if (!p || (!at && !haveFix())) { msg('No GPS fix yet – mark not recorded', 5000); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return; }
+    var m = { side: side, n: nextN(), lat: p.lat, lon: p.lon, acc: p.acc, ts: Date.now() };
+    if (cat) m.cat = cat;
     m.name = KML.markName(m);
     state.marks.push(m);
     save();
     if (navigator.vibrate) navigator.vibrate(side === 'L' ? 80 : [60, 40, 60]);
-    flash(side, m.name);
+    flash(side, m.name, !!cat);
     render();
   }
+  // ---------- "Other" issue marks (Other Left / Other Right -> category bottom sheet) ----------
+  var catSide = null, catPos = null;
+  function openCat(side) {
+    if (!running) { msg('Press START first'); return; }
+    if (!haveFix()) { msg('No GPS fix yet – mark not recorded', 5000); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return; }
+    catSide = side; catPos = { lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc };   // position where the button was tapped
+    $('catTitle').textContent = side === 'L' ? 'Other Left' : 'Other Right';
+    $('catSheet').className = 'side' + side;
+    if (navigator.vibrate) navigator.vibrate(25);
+  }
+  function closeCat() { $('catSheet').className = 'hidden'; catSide = null; catPos = null; }
+  function pickCat(cat) {
+    var side = catSide, at = catPos;
+    closeCat();
+    if (side) addMark(side, cat, at);
+  }
   var flashT;
-  function flash(side, txt) {
-    var f = $('flash'); f.className = 'show ' + side; f.textContent = txt;
+  function flash(side, txt, small) {
+    var f = $('flash'), c = small ? ' sm ' : ' '; f.className = 'show' + c + side; f.textContent = txt;
     clearTimeout(flashT);
-    flashT = setTimeout(function () { f.className = side; f.textContent = txt; f.style.opacity = ''; f.classList.remove('show'); }, 250);
+    flashT = setTimeout(function () { f.className = (small ? 'sm ' : '') + side; f.textContent = txt; f.style.opacity = ''; f.classList.remove('show'); }, 250);
   }
   function undo() {
     if (!state.marks.length) { msg('Nothing to undo'); return; }
@@ -157,11 +176,13 @@
   // ---------- rendering ----------
   function render() {
     var L = state.marks.filter(function (m) { return m.side === 'L'; }).length;
-    var R = state.marks.length - L;
+    var oth = state.marks.filter(function (m) { return m.cat; });
+    L = state.marks.filter(function (m) { return m.side === 'L' && !m.cat; }).length;
+    var R = state.marks.filter(function (m) { return m.side !== 'L' && !m.cat; }).length;
     $('npts').textContent = state.track.length;
-    $('nmarks').textContent = state.marks.length + ' (L' + L + ' / R' + R + ')';
+    $('nmarks').textContent = state.marks.length + ' (L' + L + ' / R' + R + ')' + (oth.length ? ' + ' + oth.length + ' other' : '');
     var lastL, lastR;
-    state.marks.forEach(function (m) { if (m.side === 'L') lastL = m; else lastR = m; });
+    state.marks.forEach(function (m) { if (m.cat) return; if (m.side === 'L') lastL = m; else lastR = m; });
     $('lastL').textContent = lastL ? 'last: ' + KML.markName(lastL) : '';
     $('lastR').textContent = lastR ? 'last: ' + KML.markName(lastR) : '';
     if (!$('sheet').classList.contains('hidden')) renderList();
@@ -173,10 +194,16 @@
     $('listCount').textContent = state.marks.length + ' total';
     sorted.forEach(function (o) {
       var m = o.m, li = document.createElement('li');
-      var tag = document.createElement('span'); tag.className = 'tag ' + m.side; tag.textContent = KML.markName(m);
+      var tag = document.createElement('span'); tag.className = 'tag ' + m.side;
       var meta = document.createElement('span'); meta.className = 'meta';
-      meta.textContent = (m.ts ? KML.fmtLocal(m.ts) : 'no time') + ' · ' + m.lat.toFixed(6) + ', ' + m.lon.toFixed(6) +
-        (m.acc != null ? ' · ±' + Math.round(m.acc) + 'm' : '') + (m.imported ? ' · imported' : '');
+      var cat = m.cat && KML.catById(m.cat);
+      if (cat) {
+        tag.textContent = m.side + '-' + m.n;
+        var cl = document.createElement('b'); cl.className = 'catlbl'; cl.style.color = cat.color; cl.textContent = cat.label;
+        meta.appendChild(cl); meta.appendChild(document.createElement('br'));
+      } else tag.textContent = KML.markName(m);
+      meta.appendChild(document.createTextNode((m.ts ? KML.fmtLocal(m.ts) : 'no time') + ' · ' + m.lat.toFixed(6) + ', ' + m.lon.toFixed(6) +
+        (m.acc != null ? ' · ±' + Math.round(m.acc) + 'm' : '') + (m.imported ? ' · imported' : '')));
       var del = document.createElement('button'); del.className = 'del'; del.textContent = 'Delete';
       del.onclick = function () {
         if (confirm('Delete ' + KML.markName(m) + '?')) { state.marks.splice(o.i, 1); save(); render(); }
@@ -210,8 +237,9 @@
       g.beginPath(); t.forEach(function (p, i) { i ? g.lineTo(X(p.lon), Y(p.lat)) : g.moveTo(X(p.lon), Y(p.lat)); }); g.stroke();
     });
     state.marks.forEach(function (m) {
-      g.fillStyle = m.side === 'L' ? '#2d62ff' : '#ffb400'; g.strokeStyle = '#fff'; g.lineWidth = 2;
-      g.beginPath(); g.arc(X(m.lon), Y(m.lat), 7, 0, 7); g.fill(); g.stroke();
+      var cc = m.cat && KML.catById(m.cat), sc2 = m.side === 'L' ? '#2d62ff' : '#ffb400';
+      g.fillStyle = cc ? cc.color : sc2; g.strokeStyle = cc ? sc2 : '#fff'; g.lineWidth = cc ? 3.5 : 2;
+      g.beginPath(); g.arc(X(m.lon), Y(m.lat), cc ? 8 : 7, 0, 7); g.fill(); g.stroke();
     });
   }
 
@@ -268,6 +296,13 @@
   $('startStop').onclick = function () { running ? stop() : start(); };
   $('btnL').onclick = function () { addMark('L'); };
   $('btnR').onclick = function () { addMark('R'); };
+  $('btnOL').onclick = function () { openCat('L'); };
+  $('btnOR').onclick = function () { openCat('R'); };
+  $('catCancel').onclick = closeCat;
+  $('catBack').onclick = closeCat;
+  Array.prototype.forEach.call(document.querySelectorAll('.cat-opt'), function (b) {
+    b.onclick = function () { pickCat(b.getAttribute('data-cat')); };
+  });
   $('undo').onclick = undo;
   $('menuBtn').onclick = function () { $('sheet').classList.remove('hidden'); renderList(); };
   $('closeSheet').onclick = function () { $('sheet').classList.add('hidden'); };

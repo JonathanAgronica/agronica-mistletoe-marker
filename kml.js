@@ -10,7 +10,24 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
       p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
-  function markName(m) { return m.name || ((m.side === 'L' ? 'L-' : 'R-') + m.n); }
+  // "Other" issue categories recorded with the Other Left / Other Right buttons
+  var CATS = [
+    { id: 'irrigation', label: 'Broken irrigation', color: '#00c8ff', kml: 'ffffc800', icon: 'water' },
+    { id: 'phytophthora', label: 'Phytophthora treatment', color: '#b266ff', kml: 'ffff66b2', icon: 'triangle' },
+    { id: 'nutrition', label: 'Nutritional issue', color: '#ff5ca8', kml: 'ffa85cff', icon: 'square' }
+  ];
+  function catById(id) { for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i]; return null; }
+  function catLabel(id) { var c = catById(id); return c ? c.label : ''; }
+  function markName(m) {
+    return m.name || ((m.side === 'L' ? 'L-' : 'R-') + m.n + (m.cat && catById(m.cat) ? ' ' + catLabel(m.cat) : ''));
+  }
+  function catStyles(out) {
+    CATS.forEach(function (c) {
+      out.push('<Style id="cat-' + c.id + '"><IconStyle><color>' + c.kml + '</color><scale>1.3</scale><Icon><href>' +
+        'http://maps.google.com/mapfiles/kml/shapes/' + c.icon + '.png</href></Icon></IconStyle>' +
+        '<LabelStyle><color>' + c.kml + '</color></LabelStyle></Style>');
+    });
+  }
 
   // KML colours are aabbggrr
   var COLOURS = { L: 'ffff622d', R: 'ff00b4ff' }; // L = blue (#2d62ff), R = Agronica orange (#ffb400)
@@ -30,20 +47,22 @@
         '<Icon><href>' + ICON + '</href></Icon></IconStyle>' +
         '<LabelStyle><color>' + COLOURS[s] + '</color></LabelStyle></Style>');
     });
+    catStyles(out);
     out.push('<Style id="trackStyle"><LineStyle><color>ff03b698</color><width>3</width></LineStyle></Style>');
 
     out.push('<Folder><name>Marks</name>');
     marks.forEach(function (m) {
       var acc = (m.acc == null || isNaN(m.acc)) ? 'n/a' : Math.round(m.acc * 10) / 10 + ' m';
-      var desc = 'Side: ' + (m.side === 'L' ? 'LEFT' : 'RIGHT') + '\nTime: ' + fmtLocal(m.ts) +
+      var desc = (m.cat && catById(m.cat) ? 'Category: ' + catLabel(m.cat) + '\n' : '') + 'Side: ' + (m.side === 'L' ? 'LEFT' : 'RIGHT') + '\nTime: ' + fmtLocal(m.ts) +
         ' (' + new Date(m.ts).toISOString() + ')\nAccuracy: ' + acc;
       out.push('<Placemark>');
       out.push('<name>' + esc(markName(m)) + '</name>');
       out.push('<description>' + esc(desc) + '</description>');
       out.push('<TimeStamp><when>' + new Date(m.ts).toISOString() + '</when></TimeStamp>');
-      out.push('<styleUrl>#mark' + (m.side === 'L' ? 'L' : 'R') + '</styleUrl>');
+      out.push('<styleUrl>#' + (m.cat && catById(m.cat) ? 'cat-' + m.cat : 'mark' + (m.side === 'L' ? 'L' : 'R')) + '</styleUrl>');
       out.push('<ExtendedData>' +
         '<Data name="side"><value>' + m.side + '</value></Data>' +
+        (m.cat && catById(m.cat) ? '<Data name="cat"><value>' + m.cat + '</value></Data>' + '<Data name="category"><value>' + esc(catLabel(m.cat)) + '</value></Data>' : '') +
         '<Data name="n"><value>' + m.n + '</value></Data>' +
         '<Data name="accuracy"><value>' + (m.acc == null ? '' : m.acc) + '</value></Data>' +
         '<Data name="ts"><value>' + m.ts + '</value></Data>' +
@@ -81,13 +100,20 @@
   }
   function sideFrom(data, name, desc, styleUrl) {
     if (data.side === 'L' || data.side === 'R') return data.side;
-    if (/^\s*([LR])[-_ ]?\d+\s*$/i.test(name)) return /^\s*l/i.test(name) ? 'L' : 'R';
+    if (/^\s*([LR])[-_ ]?\d+(\s|$)/i.test(name)) return /^\s*l/i.test(name) ? 'L' : 'R';
     if (/mark([LR])\b/.test(styleUrl)) return /markL/.test(styleUrl) ? 'L' : 'R';
     var t = name + ' ' + desc;
     var l = /\bleft\b/i.test(t), r = /\bright\b/i.test(t);
     if (l && !r) return 'L';
     if (r && !l) return 'R';
     return ''; // unknown (foreign KML)
+  }
+  function catFrom(data, name, styleUrl) {
+    if (data.cat && catById(data.cat)) return data.cat;
+    var m = /#cat-(\w+)/.exec(styleUrl || '');
+    if (m && catById(m[1])) return m[1];
+    for (var i = 0; i < CATS.length; i++) if (name.toLowerCase().indexOf(CATS[i].label.toLowerCase()) >= 0) return CATS[i].id;
+    return '';
   }
   function parseKmlDoc(doc) {
     var marks = [], tracks = [];
@@ -106,12 +132,13 @@
         var ts = parseInt(data.ts, 10);
         if (!ts) { var w = text(pm, 'when'); ts = w ? Date.parse(w) : NaN; }
         if (!ts || isNaN(ts)) ts = 0;
-        var nm = /(\d+)\s*$/.exec(name);
+        var nm = /^\s*[LR][-_ ]?(\d+)(\s|$)/i.exec(name) || /(\d+)\s*$/.exec(name);
+        var cat = catFrom(data, name, text(pm, 'styleUrl'));
         var n = parseInt(data.n, 10) || (nm ? parseInt(nm[1], 10) : 0);
         var acc = data.accuracy === '' || data.accuracy == null ? null : parseFloat(data.accuracy);
         var status = data.status === 'found' || data.status === 'treated' ? data.status : (data.found === '1' ? 'found' : '');
         var foundTs = parseInt(data.foundTs, 10) || 0;
-        marks.push({ side: side, n: n, name: pts.length > 1 ? (name || '') + ' #' + (pi + 1) : name, lat: lat, lon: lon,
+        marks.push({ side: side, cat: cat, n: n, name: pts.length > 1 ? (name || '') + ' #' + (pi + 1) : name, lat: lat, lon: lon,
           acc: isNaN(acc) ? null : acc, ts: ts, imported: true, status: status, foundTs: foundTs });
       });
       if (!pts.length) lss.forEach(function (ls) {
@@ -143,6 +170,7 @@
       out.push('<Style id="mark' + s + '"><IconStyle><color>' + COLOURS[s] + '</color><scale>1.2</scale>' +
         '<Icon><href>' + ICON + '</href></Icon></IconStyle><LabelStyle><color>' + COLOURS[s] + '</color></LabelStyle></Style>');
     });
+    catStyles(out);
     out.push('<Style id="markU"><IconStyle><color>ffcccccc</color><scale>1.2</scale><Icon><href>' + ICON + '</href></Icon></IconStyle></Style>');
     out.push('<Style id="found"><IconStyle><color>ff03b698</color><scale>1.0</scale><Icon><href>' + ICON + '</href></Icon></IconStyle>' +
       '<LabelStyle><color>ff03b698</color></LabelStyle></Style>');
@@ -151,12 +179,13 @@
     pts.forEach(function (p, i) {
       var nm = p.name || ((p.side === 'L' ? 'L-' : p.side === 'R' ? 'R-' : 'M-') + (p.n || i + 1));
       var status = p.status || 'not found';
-      var desc = 'Side: ' + (p.side === 'L' ? 'LEFT' : p.side === 'R' ? 'RIGHT' : 'unknown') + '\nStatus: ' + status +
+      var desc = (p.cat && catById(p.cat) ? 'Category: ' + catLabel(p.cat) + '\n' : '') + 'Side: ' + (p.side === 'L' ? 'LEFT' : p.side === 'R' ? 'RIGHT' : 'unknown') + '\nStatus: ' + status +
         (p.foundTs ? '\nFound: ' + fmtLocal(p.foundTs) + ' (' + new Date(p.foundTs).toISOString() + ')' : '');
       out.push('<Placemark><name>' + esc(nm) + '</name><description>' + esc(desc) + '</description>');
       if (p.ts) out.push('<TimeStamp><when>' + new Date(p.ts).toISOString() + '</when></TimeStamp>');
-      out.push('<styleUrl>#' + (p.status ? 'found' : 'mark' + (p.side || 'U')) + '</styleUrl>');
+      out.push('<styleUrl>#' + (p.status ? 'found' : p.cat && catById(p.cat) ? 'cat-' + p.cat : 'mark' + (p.side || 'U')) + '</styleUrl>');
       out.push('<ExtendedData><Data name="side"><value>' + (p.side || '') + '</value></Data>' +
+        (p.cat && catById(p.cat) ? '<Data name="cat"><value>' + p.cat + '</value></Data><Data name="category"><value>' + esc(catLabel(p.cat)) + '</value></Data>' : '') +
         '<Data name="n"><value>' + (p.n || '') + '</value></Data>' +
         '<Data name="accuracy"><value>' + (p.acc == null ? '' : p.acc) + '</value></Data>' +
         '<Data name="ts"><value>' + (p.ts || '') + '</value></Data>' +
@@ -176,6 +205,6 @@
     return out.join('\n');
   }
 
-  var api = { buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
+  var api = { CATS: CATS, catById: catById, catLabel: catLabel, buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KML = api;
 })(typeof self !== 'undefined' ? self : this);
