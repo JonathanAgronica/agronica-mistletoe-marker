@@ -230,11 +230,11 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v7');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v8');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v7') && !swInfo.names.includes('mistletoe-marker-v6'));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
   ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   // Agronica logo: full-strength in header, >=35% opacity brand mark in both views, not an overlay above buttons
   const logoInfo = await page.evaluate(() => {

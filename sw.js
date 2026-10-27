@@ -1,4 +1,4 @@
-const CACHE = 'mistletoe-marker-v7';
+const CACHE = 'mistletoe-marker-v8';
 const SHARED = 'mistletoe-shared'; // holds a KML shared to the app (Android share target); kept across versions
 const ASSETS = ['./', './index.html', './style.css', './app.js', './kml.js', './geo.js', './find.js', './manifest.json',
   './icons/logo.png', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',

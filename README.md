@@ -16,13 +16,13 @@ Live: https://jonathanagronica.github.io/agronica-mistletoe-marker/
 - sessions persist in localStorage; **Export found** writes a KML with found/treated status (re-importable)
 
 ## Files
-`index.html`, `style.css`, `app.js` (shell, Mark mode, shared GPS, wake lock), `find.js` (Find mode), `geo.js` (haversine/bearing/alert logic), `kml.js` (KML build/parse), `manifest.json`, `img/` (Agronica website photos as dark-overlaid backgrounds and the white `agronica-logo.svg`, from agronicaag.com; the logo is shown full-strength in the header and at ~55% opacity as a brand mark at the top of each view), `sw.js` (service worker, cache `mistletoe-marker-v7`), `icons/`. Paths are relative so the app works under a subpath.
+`index.html`, `style.css`, `app.js` (shell, Mark mode, shared GPS, wake lock), `find.js` (Find mode), `geo.js` (haversine/bearing/alert logic), `kml.js` (KML build/parse), `manifest.json`, `img/` (Agronica website photos as dark-overlaid backgrounds and the white `agronica-logo.svg`, from agronicaag.com; the logo is shown full-strength in the header and at ~55% opacity as a brand mark at the top of each view), `sw.js` (service worker, cache `mistletoe-marker-v8`), `icons/`. Paths are relative so the app works under a subpath.
 
 ## Updates
 The service worker uses `skipWaiting` + `clients.claim`; the app shell (html/js/css/manifest) is network-first with a 3 s timeout (cache fallback offline). When a new version takes over the page reloads itself ("App updated - reloading...") - or, if GPS is running, as soon as it is stopped. Bump `CACHE` in `sw.js` on every release.
 
 ## Icon / photo credit
-The app icon (`icons/`) is a circular crop of a real photograph of macadamia leaves and nuts: *Macadamia integrifolia (leaves and immature nuts)*, photo by **Forest & Kim Starr** (Starr Environmental), Maui, 2008 - via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Starr_080715-9231_Macadamia_integrifolia.jpg), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Cropped, colour-adjusted and composited on the Agronica orange (#ffb400) rounded square.
+The app icon (`icons/`) is a circular crop of a real photograph of macadamia leaves and nuts: *Macadamia integrifolia (leaves and immature nuts)*, photo by **Forest & Kim Starr** (Starr Environmental), Maui, 2008 - via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Starr_080715-9231_Macadamia_integrifolia.jpg), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Cropped, colour-adjusted (slightly darkened) and composited on the Agronica orange (#ffb400) rounded square, with the white Agronica "a" mark (from `img/agronica-logo.svg`) shaded over it at 55% opacity.
 
 ## Tests
 ```
