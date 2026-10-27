@@ -1,4 +1,4 @@
-const CACHE = 'mistletoe-marker-v6';
+const CACHE = 'mistletoe-marker-v7';
 const SHARED = 'mistletoe-shared'; // holds a KML shared to the app (Android share target); kept across versions
 const ASSETS = ['./', './index.html', './style.css', './app.js', './kml.js', './geo.js', './find.js', './manifest.json',
   './icons/logo.png', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
@@ -23,6 +23,19 @@ async function handleShare(req) {
   } catch (err) { /* fall through to the app anyway */ }
   return Response.redirect(self.registration.scope + '?shared=1', 303);
 }
+// App shell (html/js/css/manifest) is network-first (3 s timeout, then cache) so updates show up promptly yet it works offline;
+// images/icons are cache-first.
+const SHELL = /\.(html|js|css|json)$|\/$/;
+function fromNetwork(req, url) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(reject, 3000);
+    fetch(req, { cache: 'no-cache' }).then(res => {
+      clearTimeout(t);
+      if (res.ok && url.origin === location.origin) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+      resolve(res);
+    }, err => { clearTimeout(t); reject(err); });
+  });
+}
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method === 'POST' && url.origin === location.origin && url.pathname.endsWith('/share-target')) {
@@ -30,7 +43,12 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true, cacheName: CACHE }).then(hit => hit ||
+  const cached = () => caches.match(e.request, { ignoreSearch: true, cacheName: CACHE });
+  if (url.origin === location.origin && SHELL.test(url.pathname)) {
+    e.respondWith(fromNetwork(e.request, url).catch(() => cached().then(hit => hit || caches.match('./index.html', { cacheName: CACHE }))));
+    return;
+  }
+  e.respondWith(cached().then(hit => hit ||
     fetch(e.request).then(res => {
       if (res.ok && url.origin === location.origin) {
         const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy));

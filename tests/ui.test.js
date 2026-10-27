@@ -230,12 +230,23 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v6');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v7');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v6') && !swInfo.names.includes('mistletoe-marker-v5'));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v7') && !swInfo.names.includes('mistletoe-marker-v6'));
   ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  // Agronica logo: full-strength in header, >=35% opacity brand mark in both views, not an overlay above buttons
+  const logoInfo = await page.evaluate(() => {
+    const q = s => document.querySelector(s), cs = e => getComputedStyle(e);
+    const h = q('.hlogo'), b = q('#viewMark .brand'), f = q('#viewFind .brand');
+    return { hOp: +cs(h).opacity, hH: h.getBoundingClientRect().height, hOk: h.complete && h.naturalWidth > 0,
+      bOp: +cs(b).opacity, bH: parseFloat(cs(b).height), bOk: b.complete && b.naturalWidth > 0, fOp: +cs(f).opacity,
+      overlay: cs(q('#viewMark'), '::after').content };
+  });
+  console.log('Logo:', JSON.stringify(logoInfo));
+  assert.ok(logoInfo.hOk && logoInfo.hOp === 1 && logoInfo.hH >= 24 && logoInfo.bOk && logoInfo.bOp >= 0.35 && logoInfo.fOp >= 0.35 && logoInfo.bH >= 28);
+  assert.ok(logoInfo.overlay === 'none' || logoInfo.overlay === 'normal', 'no overlay pseudo-element over the buttons');
   // mistletoe icons: header logo loads at 512, manifest icons all resolve with the declared size, favicon/apple-touch linked
   const iconInfo = await page.evaluate(async () => {
     const img = document.querySelector('header img.logo');

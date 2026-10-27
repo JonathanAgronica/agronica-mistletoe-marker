@@ -22,6 +22,7 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:ma
   background:linear-gradient(180deg,#00000099,#000000c4),url(img/bg-harvester.webp) 58% 64%/cover #1a1a1a;border-bottom:2px solid var(--orange);flex:none}
 .logo{width:42px;height:42px;border-radius:12px;box-shadow:0 0 0 2px var(--orange),var(--shadow);background:#fff}
 .title{flex:1;font-weight:800;font-size:17px;line-height:1.1;letter-spacing:.2px;display:flex;flex-direction:column}
+.hlogo{display:block;height:28px;width:auto;max-width:100%;align-self:flex-start;margin-bottom:3px;filter:drop-shadow(0 1px 2px #000a)}
 .title span{color:var(--orange);font-weight:700;font-size:13px;letter-spacing:.3px}
 .pill{display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:99px;font-weight:800;font-size:11px;letter-spacing:.6px;
   background:var(--card2);border:1px solid var(--line);transition:background .3s,color .3s}
@@ -37,13 +38,13 @@ header{display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:ma
 /* Agronica photo backgrounds (agronicaag.com) under dark gradients so text/buttons stay readable in sun */
 #viewMark{background:linear-gradient(180deg,#0b0b0bc7 0%,#0b0b0b6b 38%,#0b0b0b8f 100%),url(img/bg-harvester.webp) 58% 62%/cover no-repeat #141414}
 #viewFind{background:linear-gradient(180deg,#0b0b0bb8,#0b0b0b8f 50%,#0b0b0bc7),url(img/bg-orchard-sunset.webp) 50% 30%/cover no-repeat #141414}
-/* Agronica logo watermark (white SVG, ~13% opacity) over the photo backgrounds, placed per view clear of buttons/labels;
-   pointer-events:none so it never intercepts taps. */
+/* Agronica logo (white SVG): full-strength in the header, and as a clearly visible ~50% brand mark on the photo
+   at the top of each view (in the open area above the cards, never over button labels). */
 .view{isolation:isolate}
-.view::after,#sheet::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;mix-blend-mode:normal;
-  background:url(img/agronica-logo.svg) 50% var(--wm-y,40%)/min(94%,580px) auto no-repeat;opacity:.13}
-#viewFind{--wm-y:6%}
-#sheet::after{position:fixed;--wm-y:78%}
+.brand{display:block;flex:none;width:auto;height:46px;max-width:75%;margin:2px auto 10px;opacity:.55;pointer-events:none;user-select:none;
+  filter:drop-shadow(0 1px 4px #000c)}
+#viewFind .brand{margin-top:4px}
+@media (max-height:640px){.brand{height:28px;margin-bottom:6px}}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .card{background:#1c1c1cf2;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
 .card-title{font-weight:800;font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;display:flex;

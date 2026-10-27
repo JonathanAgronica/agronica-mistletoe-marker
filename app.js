@@ -30,10 +30,11 @@
   }
 
   // ---------- shared GPS (used by Mark and Find modes) ----------
-  var owners = {}, listeners = [], statusKind = 'off';
+  var owners = {}, listeners = [], statusKind = 'off', updatePending = false;
   function anyOwner() { return Object.keys(owners).length > 0; }
   function setStatus(txt, cls) {
     var s = $('status'); s.className = 'pill ' + cls; s.querySelector('b').textContent = txt; statusKind = cls;
+    if (cls === 'off' && updatePending) location.reload();
   }
   function onPos(p) {
     lastPos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, ts: Date.now(),
@@ -336,10 +337,18 @@
   render();
   if (sw === 'find') setView('find');
   if ('serviceWorker' in navigator) {
-    var hadCtl = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    var hadCtl = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      var chk = function () { try { reg.update(); } catch (e) {} };
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) chk(); });
+      setInterval(chk, 30 * 60 * 1000);
+    }).catch(function () {});
+    // a new service worker (skipWaiting + clients.claim) took over: reload straight away unless GPS is running,
+    // in which case reload as soon as it stops (marks/sessions are kept in localStorage either way)
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (hadCtl) toast('App updated - reload to use the new version', 8000);
+      if (!hadCtl || reloaded) return;
+      if (statusKind === 'off') { reloaded = true; toast('App updated - reloading...', 1500); setTimeout(function () { location.reload(); }, 400); }
+      else { updatePending = true; toast('App updated - will reload when GPS stops', 8000); }
     });
   }
 })();
