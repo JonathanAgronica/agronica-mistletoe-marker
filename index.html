@@ -143,7 +143,7 @@
       <div class="card">
         <div class="card-title">Map <button id="mapMode" class="chip-btn">Nearby</button></div>
         <canvas id="map"></canvas>
-        <div class="legend"><i class="l"></i>Left <i class="r"></i>Right <i class="u"></i>Unknown <i class="f"></i>Found <i class="me"></i>You<br><i class="c-irrigation"></i>Irrigation <i class="c-phytophthora"></i>Phytophthora <i class="c-nutrition"></i>Nutrition</div>
+        <div class="legend" id="findLegend"></div>
       </div>
 
       <div class="card">
@@ -172,6 +172,7 @@
     <input type="file" id="importFile" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml,*/*" hidden>
   </div>
   <canvas id="plot" width="600" height="300"></canvas>
+  <div class="legend" id="plotLegend"></div>
   <div class="sheet-head"><b>Marks</b><span id="listCount" class="dim"></span></div>
   <ul id="list"></ul>
 </div>
@@ -179,9 +180,9 @@
   <div class="cat-back" id="catBack"></div>
   <div class="cat-panel">
     <div class="cat-title"><b id="catTitle">Other</b><span>What did you find?</span></div>
-    <button class="cat-opt" data-cat="irrigation" style="--c:#00c8ff"><i></i>Broken irrigation</button>
-    <button class="cat-opt" data-cat="phytophthora" style="--c:#b266ff"><i></i>Phytophthora treatment</button>
-    <button class="cat-opt" data-cat="nutrition" style="--c:#ff5ca8"><i></i>Nutritional issue</button>
+    <button class="cat-opt" data-cat="irrigation"><i class="sp diamond"></i>Broken irrigation</button>
+    <button class="cat-opt" data-cat="phytophthora"><i class="sp triangle"></i>Phytophthora treatment</button>
+    <button class="cat-opt" data-cat="nutrition"><i class="sp square"></i>Nutritional issue</button>
     <button id="catCancel" class="cat-cancel">Cancel</button>
   </div>
 </div>

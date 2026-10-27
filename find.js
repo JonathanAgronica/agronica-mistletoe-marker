@@ -49,7 +49,7 @@
     if (t) fmT = setTimeout(function () { $('findMsg').textContent = ''; }, ms || 5000);
   }
   // category filter: default all on; points without a category count as "mistletoe"
-  var FCATS = [{ id: 'mistletoe', label: 'Mistletoe', color: '#98b603' }].concat(KML.CATS);
+  var FCATS = KML.TYPES;
   function catOn(id) { return settings.cats[id || 'mistletoe'] !== false; }
   function vis(s) { return s ? s.points.filter(function (p) { return catOn(p.cat); }) : []; }
   function pointId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -199,7 +199,7 @@
     if (rafId) return;
     rafId = requestAnimationFrame(function () { rafId = 0; if (dirty) { dirty = false; renderLive(force); } });
   }
-  function renderAll() { renderSessions(); renderSettings(); renderCats(); pump(true); }
+  function renderAll() { $('findLegend').innerHTML = KML.legendHtml('<span class="lg"><i class="sp circle" style="background:#cfcfcf"></i>Unknown</span><span class="lg"><i class="sp circle" style="background:#98b60055;box-shadow:inset 0 0 0 2px #98b603"></i>Found</span><span class="lg"><i class="sp circle" style="background:#fff"></i>You</span>'); renderSessions(); renderSettings(); renderCats(); pump(true); }
   function renderSessions() {
     var sel = $('sessSel'); sel.innerHTML = '';
     if (!F.sessions.length) { var o = document.createElement('option'); o.textContent = '(no sessions - load a KML)'; sel.appendChild(o); sel.disabled = true; return; }
@@ -223,8 +223,8 @@
     if (s) s.points.forEach(function (p) { var k = p.cat || 'mistletoe'; present[k] = (present[k] || 0) + 1; });
     FCATS.forEach(function (c) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'fchip' + (catOn(c.id) ? ' on' : '');
-      b.style.setProperty('--c', c.color); b.setAttribute('data-cat', c.id); b.setAttribute('aria-pressed', catOn(c.id));
-      b.innerHTML = '<i></i><span></span><em></em>'; b.querySelector('span').textContent = c.label; b.querySelector('em').textContent = present[c.id] || 0;
+      b.style.setProperty('--c', c.R); b.style.setProperty('--cl', c.L); b.style.setProperty('--cr', c.R); b.setAttribute('data-cat', c.id); b.setAttribute('aria-pressed', catOn(c.id));
+      b.innerHTML = '<i class="sp ' + c.shape + '"></i><span></span><em></em>'; b.querySelector('span').textContent = c.label; b.querySelector('em').textContent = present[c.id] || 0;
       b.onclick = function () {
         settings.cats[c.id] = !catOn(c.id); alerted = {}; save(true); renderCats(); dirty = true; listAt = 0; pump(true);
       };
@@ -257,7 +257,7 @@
       var p = t.p;
       $('tName').textContent = p.name;
       var tc = $('tCat'), cd = p.cat && KML.catById(p.cat);
-      tc.textContent = cd ? cd.label : ''; tc.style.display = cd ? '' : 'none'; if (cd) tc.style.setProperty('--c', cd.color);
+      tc.textContent = cd ? cd.label : ''; tc.style.display = cd ? '' : 'none'; if (cd) tc.style.setProperty('--c', KML.typeColor(p.cat, p.side));
       var chip = $('tSide');
       var rel = (hd.h != null && !isNaN(t.brg)) ? GEO.diffAngle(hd.h, t.brg) : null;
       var side = p.side;
@@ -298,7 +298,7 @@
       var sub = document.createElement('small');
       var rc = r.p.cat && KML.catById(r.p.cat);
       sub.textContent = (rc ? rc.label + (r.p.status ? ' · ' : '') : '') + (r.p.status ? r.p.status + (r.p.foundTs ? ' ' + KML.fmtLocal(r.p.foundTs).slice(11, 16) : '') : '');
-      if (rc) { sub.style.color = rc.color; chip.style.boxShadow = '0 0 0 3px ' + rc.color; }
+      if (rc) { sub.style.color = rc.color; chip.style.background = KML.typeColor(r.p.cat, r.p.side); chip.style.color = r.p.side === 'L' ? '#fff' : '#222'; }
       nm.appendChild(sub);
       var d = document.createElement('span'); d.className = 'dst'; d.textContent = isNaN(r.dist) ? '' : GEO.fmtDist(r.dist);
       var b = document.createElement('button'); b.className = 'sq small ' + (r.p.status ? 'on' : '');
@@ -355,10 +355,10 @@
     vpts.forEach(function (q) {
       var p = P(q); if (p[0] < -10 || p[1] < -10 || p[0] > W + 10 || p[1] > H + 10) return;
       var isT = t && t.p === q;
-      g.beginPath(); g.arc(p[0], p[1], isT ? 9 : 6, 0, 7);
+      KML.shapePath(g, KML.typeShape(q.cat), p[0], p[1], isT ? 9 : 6);
       if (q.status) { g.fillStyle = COL.F + '55'; g.fill(); g.strokeStyle = COL.F; g.lineWidth = 2; g.stroke(); }
       else if (q.cat && KML.catById(q.cat)) {
-        g.fillStyle = KML.catById(q.cat).color; g.fill(); g.strokeStyle = isT ? '#fff' : COL[q.side || 'U']; g.lineWidth = isT ? 3.5 : 3; g.stroke();
+        g.fillStyle = KML.typeColor(q.cat, q.side); g.fill(); g.strokeStyle = isT ? '#fff' : '#000a'; g.lineWidth = isT ? 3.5 : 1.5; g.stroke();
       }
       else { g.fillStyle = COL[q.side || 'U']; g.fill(); g.strokeStyle = isT ? '#fff' : '#000a'; g.lineWidth = isT ? 3 : 1.5; g.stroke(); }
     });

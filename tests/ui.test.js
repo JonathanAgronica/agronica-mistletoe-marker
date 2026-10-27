@@ -96,7 +96,8 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   await page.screenshot({ path: SHOTS + '/2c-menu-categories.png' });
   await page.click('#closeSheet');
   const mkml = await page.evaluate(() => KML.buildKml(JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')), {}));
-  ['cat-irrigation', 'cat-phytophthora', 'cat-nutrition'].forEach(id => assert.ok(mkml.includes('<styleUrl>#' + id + '</styleUrl>'), id));
+  ['cat-irrigation-L', 'cat-phytophthora-R', 'cat-nutrition-L'].forEach(id => assert.ok(mkml.includes('<styleUrl>#' + id + '</styleUrl>'), id));
+  assert.strictEqual((mkml.match(/<Style id="(mark[LR]|cat-\w+-[LR])"/g) || []).length, 8, 'eight mark styles');
   assert.ok(/Category: Broken irrigation/.test(mkml) && /<name>R-\d+ Phytophthora treatment<\/name>/.test(mkml));
   const { DOMParser: DP } = require('@xmldom/xmldom');
   const mrt = require('../kml.js').parseKml(mkml, DP);
@@ -229,12 +230,12 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v5');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v6');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v5') && !swInfo.names.includes('mistletoe-marker-v4'));
-  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v6') && !swInfo.names.includes('mistletoe-marker-v5'));
+  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   // mistletoe icons: header logo loads at 512, manifest icons all resolve with the declared size, favicon/apple-touch linked
   const iconInfo = await page.evaluate(async () => {
     const img = document.querySelector('header img.logo');

@@ -149,6 +149,7 @@
     catSide = side; catPos = { lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc };   // position where the button was tapped
     $('catTitle').textContent = side === 'L' ? 'Other Left' : 'Other Right';
     $('catSheet').className = 'side' + side;
+    Array.prototype.forEach.call(document.querySelectorAll('.cat-opt'), function (b) { b.style.setProperty('--c', KML.typeColor(b.getAttribute('data-cat'), side)); });
     if (navigator.vibrate) navigator.vibrate(25);
   }
   function closeCat() { $('catSheet').className = 'hidden'; catSide = null; catPos = null; }
@@ -187,6 +188,7 @@
     $('lastR').textContent = lastR ? 'last: ' + KML.markName(lastR) : '';
     if (!$('sheet').classList.contains('hidden')) renderList();
   }
+  $('plotLegend').innerHTML = KML.legendHtml();
   function renderList() {
     var ul = $('list'); ul.innerHTML = '';
     var sorted = state.marks.map(function (m, i) { return { m: m, i: i }; })
@@ -199,7 +201,10 @@
       var cat = m.cat && KML.catById(m.cat);
       if (cat) {
         tag.textContent = m.side + '-' + m.n;
-        var cl = document.createElement('b'); cl.className = 'catlbl'; cl.style.color = cat.color; cl.textContent = cat.label;
+        tag.style.background = KML.typeColor(m.cat, m.side); tag.style.color = m.side === 'L' ? '#fff' : '#222';
+        var cl = document.createElement('b'); cl.className = 'catlbl'; cl.style.color = cat.color;
+        var sp = document.createElement('i'); sp.className = 'sp ' + cat.shape; sp.style.background = KML.typeColor(m.cat, m.side); cl.appendChild(sp);
+        cl.appendChild(document.createTextNode(cat.label));
         meta.appendChild(cl); meta.appendChild(document.createElement('br'));
       } else tag.textContent = KML.markName(m);
       meta.appendChild(document.createTextNode((m.ts ? KML.fmtLocal(m.ts) : 'no time') + ' · ' + m.lat.toFixed(6) + ', ' + m.lon.toFixed(6) +
@@ -237,9 +242,9 @@
       g.beginPath(); t.forEach(function (p, i) { i ? g.lineTo(X(p.lon), Y(p.lat)) : g.moveTo(X(p.lon), Y(p.lat)); }); g.stroke();
     });
     state.marks.forEach(function (m) {
-      var cc = m.cat && KML.catById(m.cat), sc2 = m.side === 'L' ? '#2d62ff' : '#ffb400';
-      g.fillStyle = cc ? cc.color : sc2; g.strokeStyle = cc ? sc2 : '#fff'; g.lineWidth = cc ? 3.5 : 2;
-      g.beginPath(); g.arc(X(m.lon), Y(m.lat), cc ? 8 : 7, 0, 7); g.fill(); g.stroke();
+      var cc = m.cat && KML.catById(m.cat);
+      g.fillStyle = KML.typeColor(cc ? m.cat : '', m.side); g.strokeStyle = '#fff'; g.lineWidth = 2;
+      KML.shapePath(g, KML.typeShape(cc ? m.cat : ''), X(m.lon), Y(m.lat), cc ? 8 : 7); g.fill(); g.stroke();
     });
   }
 

@@ -118,7 +118,7 @@ assert.strictEqual(r.marks[3].name, 'Two #1'); assert.strictEqual(r.marks[4].nam
 
 // --- "Other" categories: names, KML styles, round trip, speech label
 assert.deepStrictEqual(KML.CATS.map(c => c.label), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue']); n++;
-assert.strictEqual(new Set(KML.CATS.map(c => c.kml)).size, 3); assert.strictEqual(new Set(KML.CATS.map(c => c.icon)).size, 3); n += 2;
+assert.strictEqual(new Set(KML.CATS.map(c => c.kmlL).concat(KML.CATS.map(c => c.kmlR))).size, 6); assert.strictEqual(new Set(KML.CATS.map(c => c.icon)).size, 3); n += 2;
 assert.strictEqual(KML.markName({ side: 'L', n: 5, cat: 'irrigation' }), 'L-5 Broken irrigation');
 assert.strictEqual(KML.markName({ side: 'R', n: 6 }), 'R-6');
 const cs = { marks: [
@@ -127,7 +127,17 @@ const cs = { marks: [
   { side: 'R', n: 6, cat: 'phytophthora', name: 'R-6 Phytophthora treatment', lat: -27.3, lon: 153.3, acc: 3, ts: 1700000200000 },
   { side: 'R', n: 7, cat: 'nutrition', name: 'R-7 Nutritional issue', lat: -27.4, lon: 153.4, acc: 3, ts: 1700000300000 }], track: [] };
 const ck = KML.buildKml(cs, {});
-['cat-irrigation', 'cat-phytophthora', 'cat-nutrition'].forEach(id => { ok(ck.includes('<Style id="' + id + '">')); ok(ck.includes('<styleUrl>#' + id + '</styleUrl>')); });
+// 8 distinct styles: markL, markR + (irrigation, phytophthora, nutrition) x (L, R), each with its own colour; used marks reference them
+const STYLE_IDS = ['markL', 'markR'].concat([].concat(...['irrigation', 'phytophthora', 'nutrition'].map(c => ['L', 'R'].map(s => 'cat-' + c + '-' + s))));
+const styleCols = STYLE_IDS.map(id => { const m = new RegExp('<Style id="' + id + '"><IconStyle><color>([0-9a-f]{8})</color>').exec(ck); ok(m, 'style ' + id); return m[1]; });
+assert.strictEqual(STYLE_IDS.length, 8); assert.strictEqual(new Set(styleCols).size, 8, 'eight distinct style colours: ' + styleCols); n += 2;
+assert.strictEqual(new Set(KML.CATS.map(c => c.shape).concat('circle')).size, 4); n++;      // distinct marker shape per type (colour-blind aid)
+// left is the darker shade, right the lighter shade of the same type
+const lum = h => { const v = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+KML.CATS.forEach(c => { ok(lum(KML.typeColor(c.id, 'L')) < lum(KML.typeColor(c.id, 'R')), c.id + ' L darker than R'); });
+assert.strictEqual(KML.typeColor('', 'L'), '#2d62ff'); assert.strictEqual(KML.typeColor('', 'R'), '#ffb400'); n += 2;
+ok(ck.includes('<styleUrl>#cat-irrigation-L</styleUrl>') && ck.includes('<styleUrl>#cat-phytophthora-R</styleUrl>') && ck.includes('<styleUrl>#cat-nutrition-R</styleUrl>'));
+ok(/<Style id="cat-nutrition-L">/.test(KML.buildFindKml({ points: [], track: [] }, {})), 'find export carries the same 8 styles');
 ok(/Category: Broken irrigation/.test(ck) && /Category: Phytophthora treatment/.test(ck) && /Category: Nutritional issue/.test(ck));
 ok(ck.includes('<styleUrl>#markL</styleUrl>'));
 r = KML.parseKml(ck, DOMParser);
@@ -141,7 +151,9 @@ assert.deepStrictEqual(r.marks.map(m => m.side), ['L', 'L', 'R', 'R']); assert.d
 const cf = KML.buildFindKml({ name: 'C', points: cs.marks.map(m => Object.assign({}, m, { status: m.cat === 'nutrition' ? 'found' : '' })), track: [] }, {});
 r = KML.parseKml(cf, DOMParser);
 assert.deepStrictEqual(r.marks.map(m => m.cat), ['', 'irrigation', 'phytophthora', 'nutrition']); assert.deepStrictEqual(r.marks.map(m => m.status), ['', '', '', 'found']);
-ok(cf.includes('<styleUrl>#cat-irrigation</styleUrl>') && cf.includes('<styleUrl>#found</styleUrl>')); n += 2;
+ok(cf.includes('<styleUrl>#cat-irrigation-L</styleUrl>') && cf.includes('<styleUrl>#found</styleUrl>')); n += 2;
+r = KML.parseKml(bare.replace(/#cat-(\w+)-[LR]</g, '#cat-$1<'), DOMParser);
+assert.deepStrictEqual(r.marks.map(m => m.cat), ['', 'irrigation', 'phytophthora', 'nutrition']); n++;   // v5 exports (#cat-<id>) still import
 assert.strictEqual(GEO.speechText('L', 20, 1, 'Broken irrigation'), 'Broken irrigation left, 20 metres');
 assert.strictEqual(GEO.speechText('R', 3, 3, 'Nutritional issue'), 'Nutritional issue right, arrived'); n += 2;
 

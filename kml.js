@@ -11,11 +11,36 @@
       p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
   // "Other" issue categories recorded with the Other Left / Other Right buttons
+  // Colour scheme per mark type. Left = darker shade, right = lighter shade of the type's hue (Mistletoe keeps the main button
+  // colours: blue left / Agronica orange right). Each type also has its own marker shape so types stay distinguishable without colour.
+  function kmlColour(hex) { return 'ff' + hex.slice(5, 7) + hex.slice(3, 5) + hex.slice(1, 3); }   // #rrggbb -> aabbggrr
+  var MIST = { id: 'mistletoe', label: 'Mistletoe', L: '#2d62ff', R: '#ffb400', shape: 'circle', icon: 'placemark_circle' };
   var CATS = [
-    { id: 'irrigation', label: 'Broken irrigation', color: '#00c8ff', kml: 'ffffc800', icon: 'water' },
-    { id: 'phytophthora', label: 'Phytophthora treatment', color: '#b266ff', kml: 'ffff66b2', icon: 'triangle' },
-    { id: 'nutrition', label: 'Nutritional issue', color: '#ff5ca8', kml: 'ffa85cff', icon: 'square' }
+    { id: 'irrigation', label: 'Broken irrigation', L: '#0a8fb5', R: '#5ee6ff', shape: 'diamond', icon: 'water' },
+    { id: 'phytophthora', label: 'Phytophthora treatment', L: '#6a2bbf', R: '#c19bff', shape: 'triangle', icon: 'triangle' },
+    { id: 'nutrition', label: 'Nutritional issue', L: '#c2185b', R: '#ff8cc6', shape: 'square', icon: 'square' }
   ];
+  CATS.forEach(function (c) { c.color = c.R; c.kmlL = kmlColour(c.L); c.kmlR = kmlColour(c.R); });   // c.color = light shade (text on dark)
+  var TYPES = [MIST].concat(CATS);
+  // colour of a mark: type id ('' = mistletoe) + side ('L' darker, anything else lighter)
+  function typeColor(id, side) { var t = id && catById(id) || MIST; return side === 'L' ? t.L : t.R; }
+  function typeShape(id) { var t = id && catById(id) || MIST; return t.shape; }
+  // trace a marker outline (caller fills/strokes)
+  function shapePath(g, shape, x, y, r) {
+    g.beginPath();
+    if (shape === 'diamond') { g.moveTo(x, y - r * 1.25); g.lineTo(x + r * 1.25, y); g.lineTo(x, y + r * 1.25); g.lineTo(x - r * 1.25, y); }
+    else if (shape === 'triangle') { g.moveTo(x, y - r * 1.2); g.lineTo(x + r * 1.15, y + r * 0.9); g.lineTo(x - r * 1.15, y + r * 0.9); }
+    else if (shape === 'square') { g.rect(x - r * 0.95, y - r * 0.95, r * 1.9, r * 1.9); return; }
+    else { g.arc(x, y, r, 0, 7); return; }
+    g.closePath();
+  }
+  // shared legend markup (each type: dark = left, light = right swatch)
+  function legendHtml(extra) {
+    var h = TYPES.map(function (t) {
+      return '<span class="lg"><i class="sp ' + t.shape + '" style="background:' + t.L + '"></i><i class="sp ' + t.shape + '" style="background:' + t.R + '"></i>' + t.label.replace(' treatment', '') + '</span>';
+    }).join('');
+    return h + '<span class="lg note">dark = Left, light = Right</span>' + (extra || '');
+  }
   function catById(id) { for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i]; return null; }
   function catLabel(id) { var c = catById(id); return c ? c.label : ''; }
   function markName(m) {
@@ -23,9 +48,12 @@
   }
   function catStyles(out) {
     CATS.forEach(function (c) {
-      out.push('<Style id="cat-' + c.id + '"><IconStyle><color>' + c.kml + '</color><scale>1.3</scale><Icon><href>' +
-        'http://maps.google.com/mapfiles/kml/shapes/' + c.icon + '.png</href></Icon></IconStyle>' +
-        '<LabelStyle><color>' + c.kml + '</color></LabelStyle></Style>');
+      ['L', 'R'].forEach(function (s) {
+        var col = s === 'L' ? c.kmlL : c.kmlR;
+        out.push('<Style id="cat-' + c.id + '-' + s + '"><IconStyle><color>' + col + '</color><scale>1.3</scale><Icon><href>' +
+          'http://maps.google.com/mapfiles/kml/shapes/' + c.icon + '.png</href></Icon></IconStyle>' +
+          '<LabelStyle><color>' + col + '</color></LabelStyle></Style>');
+      });
     });
   }
 
@@ -59,7 +87,7 @@
       out.push('<name>' + esc(markName(m)) + '</name>');
       out.push('<description>' + esc(desc) + '</description>');
       out.push('<TimeStamp><when>' + new Date(m.ts).toISOString() + '</when></TimeStamp>');
-      out.push('<styleUrl>#' + (m.cat && catById(m.cat) ? 'cat-' + m.cat : 'mark' + (m.side === 'L' ? 'L' : 'R')) + '</styleUrl>');
+      out.push('<styleUrl>#' + (m.cat && catById(m.cat) ? 'cat-' + m.cat + '-' + (m.side === 'L' ? 'L' : 'R') : 'mark' + (m.side === 'L' ? 'L' : 'R')) + '</styleUrl>');
       out.push('<ExtendedData>' +
         '<Data name="side"><value>' + m.side + '</value></Data>' +
         (m.cat && catById(m.cat) ? '<Data name="cat"><value>' + m.cat + '</value></Data>' + '<Data name="category"><value>' + esc(catLabel(m.cat)) + '</value></Data>' : '') +
@@ -183,7 +211,7 @@
         (p.foundTs ? '\nFound: ' + fmtLocal(p.foundTs) + ' (' + new Date(p.foundTs).toISOString() + ')' : '');
       out.push('<Placemark><name>' + esc(nm) + '</name><description>' + esc(desc) + '</description>');
       if (p.ts) out.push('<TimeStamp><when>' + new Date(p.ts).toISOString() + '</when></TimeStamp>');
-      out.push('<styleUrl>#' + (p.status ? 'found' : p.cat && catById(p.cat) ? 'cat-' + p.cat : 'mark' + (p.side || 'U')) + '</styleUrl>');
+      out.push('<styleUrl>#' + (p.status ? 'found' : p.cat && catById(p.cat) ? 'cat-' + p.cat + '-' + (p.side === 'L' ? 'L' : 'R') : 'mark' + (p.side || 'U')) + '</styleUrl>');
       out.push('<ExtendedData><Data name="side"><value>' + (p.side || '') + '</value></Data>' +
         (p.cat && catById(p.cat) ? '<Data name="cat"><value>' + p.cat + '</value></Data><Data name="category"><value>' + esc(catLabel(p.cat)) + '</value></Data>' : '') +
         '<Data name="n"><value>' + (p.n || '') + '</value></Data>' +
@@ -205,6 +233,6 @@
     return out.join('\n');
   }
 
-  var api = { CATS: CATS, catById: catById, catLabel: catLabel, buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
+  var api = { CATS: CATS, TYPES: TYPES, typeColor: typeColor, typeShape: typeShape, shapePath: shapePath, legendHtml: legendHtml, catById: catById, catLabel: catLabel, buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KML = api;
 })(typeof self !== 'undefined' ? self : this);
