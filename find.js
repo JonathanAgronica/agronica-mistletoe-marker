@@ -72,6 +72,42 @@
     window.App.toast('Loaded ' + pts.length + ' points');
     return true;
   }
+  // ---------- current marking session (live, in memory) ----------
+  var LIVE = 'live';
+  function liveSession() { for (var i = 0; i < F.sessions.length; i++) if (F.sessions[i].id === LIVE) return F.sessions[i]; return null; }
+  function markKey(m) { return m.id || ((m.side || 'L') + '|' + m.ts + '|' + m.lat.toFixed(6) + '|' + m.lon.toFixed(6)); }
+  // rebuild the live session's points from App marks, keeping found/treated status. Returns true if anything changed.
+  function syncLive(s) {
+    var marks = (window.App && window.App.marks) ? window.App.marks() : [];
+    var old = {}; s.points.forEach(function (p) { old[p.key] = p; });
+    var changed = s.points.length !== marks.length;
+    s.points = marks.map(function (m, i) {
+      var k = markKey(m), o = old[k];
+      if (!o || o.lat !== m.lat || o.lon !== m.lon || o.cat !== (m.cat || '')) changed = true;
+      return { id: o ? o.id : 'lv-' + k, key: k, n: m.n || (i + 1), name: m.name || KML.markName(m), side: m.side || '', cat: m.cat || '',
+        lat: m.lat, lon: m.lon, ts: m.ts || 0, status: o ? o.status : '', foundTs: o ? o.foundTs : 0, sev: m.sev || '', variety: m.variety || '' };
+    });
+    if (window.App && window.App.sessionName) s.name = window.App.sessionName();
+    return changed;
+  }
+  function useCurrent() {
+    var s = liveSession();
+    if (!s) { s = { id: LIVE, live: true, name: 'Current marks', created: Date.now(), points: [], track: [] }; F.sessions.push(s); }
+    syncLive(s);
+    if (!s.points.length) { fmsg('No marks in the current session yet - mark some first', 6000); }
+    F.activeId = LIVE; alerted = {}; save(true); renderAll();
+    if (s.points.length) { fmsg('Using ' + s.points.length + ' current marks - new marks are added live', 6000); window.App.toast('Finding ' + s.points.length + ' current marks'); }
+    return s;
+  }
+  var liveT = 0;
+  function marksChanged() {
+    var s = liveSession(); if (!s) return;
+    clearTimeout(liveT);
+    liveT = setTimeout(function () {
+      if (!syncLive(s)) return;
+      save(false); if (F.activeId === LIVE) { renderSessions(); renderCats(); listAt = 0; pump(true); }
+    }, 50);
+  }
   function readFile(f) {
     var r = new FileReader();
     r.onload = function () { loadKmlText(String(r.result), f.name); };
@@ -360,6 +396,7 @@
   // ---------- wiring ----------
   window.App.gps.subscribe(function (p) { if (tracking || document.body.getAttribute('data-view') === 'find') onPosition(p); });
   $('findStart').onclick = function () { tracking ? stopTracking() : startTracking(); };
+  $('useCurrent').onclick = function () { useCurrent(); };
   $('loadKml').onclick = function () { $('findFile').click(); };
   $('findFile').onchange = function (e) { var f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; };
   $('exportFound').onclick = exportFound;
@@ -423,8 +460,9 @@
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
   }
 
-  window.Find = { shown: function () { pump(true); }, _map: function () { return fmap; },
+  window.Find = { shown: function () { var s = liveSession(); if (s && syncLive(s)) { save(true); renderSessions(); renderCats(); } pump(true); }, useCurrent: useCurrent, marksChanged: marksChanged, _map: function () { return fmap; },
     _debug: function () { return { F: F, pos: pos, alerted: alerted }; } };
+  (function () { var s = liveSession(); if (s) syncLive(s); })();
   renderAll();
   checkShared();
 })();

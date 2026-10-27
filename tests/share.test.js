@@ -5,7 +5,7 @@ const SH = require('../share.js'), KML = require('../kml.js'), CFG = require('..
 let n = 0; const ok = (c, m) => { assert.ok(c, m); n++; }; const eq = (a, b, m) => { assert.deepStrictEqual(a, b, m); n++; };
 
 // config
-eq(CFG.INGEST_URL, 'https://170-64-148-102.sslip.io/api/mistletoe/submit'); eq(CFG.INGEST_KEY, 'mm-f1e22c16ccf1fe6050906fae'); eq(CFG.APP_VERSION, 'v12'); ok(/access-status$/.test(CFG.ACCESS_STATUS_URL)); ok(/access-request$/.test(CFG.ACCESS_URL));
+eq(CFG.INGEST_URL, 'https://170-64-148-102.sslip.io/api/mistletoe/submit'); eq(CFG.INGEST_KEY, 'mm-f1e22c16ccf1fe6050906fae'); eq(CFG.APP_VERSION, 'v14'); ok(/access-status$/.test(CFG.ACCESS_STATUS_URL)); ok(/access-request$/.test(CFG.ACCESS_URL));
 
 function mem() { const d = {}; return { getItem: k => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, _d: d }; }
 function mk(opts = {}) {
@@ -43,7 +43,7 @@ const mark = (id, o = {}) => Object.assign({ id, side: 'L', n: 1, lat: -25.1, lo
   const c = a.calls[0], p = c.body;
   eq(c.url, CFG.INGEST_URL); eq(c.o.method, 'POST'); eq(c.o.headers['Content-Type'], 'application/json'); eq(c.o.headers['X-Ingest-Key'], 'mm-f1e22c16ccf1fe6050906fae');
   ok(SH.UUID_RE.test(p.deviceId)); eq(Object.keys(p).sort(), ['appVersion', 'consent', 'contact', 'deviceId', 'district', 'marks', 'sessionId', 'submittedAt', 'track', 'variety'].sort());
-  eq(p.consent, true); eq(p.appVersion, 'v12'); eq(p.sessionId, 'S1'); eq(p.contact, { name: 'Jo', email: 'jo@x.com', farm: 'Jo Farm' }); eq(p.district, 'Bundaberg'); eq(p.variety, 'A16');
+  eq(p.consent, true); eq(p.appVersion, 'v14'); eq(p.sessionId, 'S1'); eq(p.contact, { name: 'Jo', email: 'jo@x.com', farm: 'Jo Farm' }); eq(p.district, 'Bundaberg'); eq(p.variety, 'A16');
   eq(p.marks[0], { id: 'm1', lat: -25.1, lon: 152.3, accuracy: 4.2, side: 'L', category: 'mistletoe', time: '2023-11-14T22:13:20.000Z', status: 'found', severity: 'heavy', variety: 'A4' });
   eq(p.marks.map(m => m.category), ['mistletoe', 'broken-irrigation', 'nutrition', 'phytophthora']); eq(p.marks[1].side, 'R'); ok(!('severity' in p.marks[1]) && !('sid' in p.marks[1]) && !('qts' in p.marks[1]));
   eq(p.track.length, 2); eq(Object.keys(p.track[0]).sort(), ['lat', 'lon', 'time']);

@@ -66,6 +66,7 @@
         <button id="undo" class="sq" aria-label="Undo last mark" title="Undo last"><svg class="ic"><use href="#i-undo"/></svg></button>
         <button id="menuBtn" class="sq" aria-label="Menu" title="Menu"><svg class="ic"><use href="#i-menu"/></svg></button>
       </div>
+      <button id="findThese" class="find-these" type="button" aria-label="Find these marks - open Find mode with the marks from this session"><svg class="ic"><use href="#i-find"/></svg><span>Find these marks</span><em id="findTheseN">0</em></button>
       <div id="msg" role="status"></div>
       <div id="sevRow" class="hidden" role="group" aria-label="How heavy is the mistletoe?"><span id="sevLbl"></span>
         <button type="button" data-sev="light">Light</button><button type="button" data-sev="moderate">Moderate</button><button type="button" data-sev="heavy">Heavy</button></div>
@@ -87,7 +88,7 @@
       <div id="target" class="card target empty">
         <div class="t-empty">
           <svg class="ic xl"><use href="#i-find"/></svg>
-          <p><b>Find mistletoe</b><br>Load a KML of marks (exported from this app, or any KML with points), then start tracking to be guided to each one.</p>
+          <p><b>Find mistletoe</b><br>Tap <b>Use my current marks</b> (or load a KML of marks), then start tracking to be guided to each one.</p>
         </div>
         <div class="t-live">
           <div class="t-head">
@@ -116,6 +117,7 @@
         <div class="btn-row">
           <button id="findStart" class="start"><svg class="ic"><use href="#i-play"/></svg><span>START TRACKING</span></button>
         </div>
+        <button id="useCurrent" class="soft full use-current" type="button"><svg class="ic"><use href="#i-pin"/></svg><span>Use my current marks</span><em id="useCurrentN">0</em></button>
         <div class="btn-row two">
           <button id="loadKml" class="soft"><svg class="ic"><use href="#i-upload"/></svg><span>Load KML</span></button>
           <button id="exportFound" class="soft"><svg class="ic"><use href="#i-share"/></svg><span>Export found</span></button>

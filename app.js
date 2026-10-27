@@ -22,6 +22,7 @@
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
     catch (e) { msg('Storage full! Export KML now.'); }
+    if (window.Find && window.Find.marksChanged) { try { window.Find.marksChanged(); } catch (e2) { console.error(e2); } }
   }
   var msgT;
   function msg(t, ms) {
@@ -201,6 +202,8 @@
     L = state.marks.filter(function (m) { return m.side === 'L' && !m.cat; }).length;
     var R = state.marks.filter(function (m) { return m.side !== 'L' && !m.cat; }).length;
     $('npts').textContent = state.track.length;
+    $('findTheseN').textContent = state.marks.length;
+    if ($('useCurrentN')) $('useCurrentN').textContent = state.marks.length;
     $('nmarks').textContent = state.marks.length + ' (L' + L + ' / R' + R + ')' + (oth.length ? ' + ' + oth.length + ' other' : '');
     var lastL, lastR;
     state.marks.forEach(function (m) { if (m.cat) return; if (m.side === 'L') lastL = m; else lastR = m; });
@@ -338,6 +341,11 @@
     }
   };
 
+  // one tap: open Find with this session's marks (in memory - marking, GPS and track keep running)
+  $('findThese').onclick = function () {
+    if (!state.marks.length) { msg('No marks yet - tap LEFT / RIGHT first'); return; }
+    setView('find'); if (window.Find && window.Find.useCurrent) window.Find.useCurrent();
+  };
   $('tabMark').onclick = function () { setView('mark'); };
   $('tabFind').onclick = function () { setView('find'); };
   var sw = null;
@@ -345,7 +353,8 @@
   window.App = { gps: { start: gpsStart, stop: gpsStop, subscribe: function (fn) { listeners.push(fn); },
       last: function () { return lastPos; }, status: function () { return statusKind; } },
     shareKml: shareKml, download: download, toast: toast, setView: setView, stamp: stamp,
-    setSeverity: setSeverity, getVariety: getVariety, setVariety: setVariety, sessionId: sessionId };
+    setSeverity: setSeverity, getVariety: getVariety, setVariety: setVariety, sessionId: sessionId,
+    marks: function () { return state.marks; }, sessionName: function () { return 'Current marks (' + KML.fmtLocal(state.created || Date.now()).slice(0, 16) + ')'; } };
 
   if (!window.isSecureContext && location.hostname !== 'localhost') msg('GPS requires HTTPS – open the https:// address', 10000);
   render();

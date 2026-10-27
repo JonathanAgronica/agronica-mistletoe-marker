@@ -50,7 +50,7 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   for (const t of ['Agronica', 'mistletoe modelling database', 'distribution and severity of mistletoe across districts', 'Share my marks with Agronica for research', 'Sharers can request access to the combined district mistletoe data', 'random device ID', 'No name', 'Not now', 'turn it off anytime'.replace('turn it off', 'You can turn it off')])
     assert.ok(w.toLowerCase().includes(t.toLowerCase()), 'welcome mentions: ' + t);
   assert.strictEqual(await page.$eval('#shOpt', e => e.checked), false, 'opt-in OFF by default');
-  assert.deepStrictEqual(await page.$eval('#shVar', e => [...e.options].map(o => o.value)), ['', 'A4', 'A16', 'A38', '741', '344', '246', '816', '842', '660', 'Other']);
+  assert.deepStrictEqual(await page.$eval('#shVar', e => [...e.options].map(o => o.value)), ['', 'A4', 'A16', 'A38', '741', '344', '246', '816', '842', '660', 'A203', 'MCT1', 'P', 'G', 'J', 'R', '47', 'Other']);
   await page.screenshot({ path: SHOTS + '/welcome.png' });
   await page.screenshot({ path: '/workspace/mm-v11-welcome.png' });
   // Not now -> once only
@@ -96,7 +96,7 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   const posts = await page.evaluate(() => window.__posts.filter(p => p.url.endsWith('/submit')));
   assert.ok(posts.length >= 1, 'POST to the ingest URL'); const all = posts.flatMap(p => p.body.marks);
   assert.strictEqual(new Set(all.map(m => m.id)).size, all.length, 'no duplicate marks uploaded'); assert.strictEqual(all.length, 5, 'opt-in marks only (the OFF mark is not sent): ' + all.length);
-  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v12'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
+  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v14'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
   assert.deepStrictEqual(p0.contact, { name: 'Jo Bloggs', email: 'jo@example.com', farm: 'Bloggs Macs' }); assert.ok(p0.deviceId === st.s.deviceId && p0.consent === true); assert.strictEqual(posts[0].headers['X-Ingest-Key'], 'mm-f1e22c16ccf1fe6050906fae'); assert.ok(/^[A-Za-z0-9._:-]{1,64}$/.test(p0.sessionId));
   assert.ok(all.some(m => m.severity === 'heavy') && all.some(m => m.category === 'broken-irrigation') && all.some(m => m.variety === 'A38'));
   assert.ok(all.every(m => typeof m.lat === 'number' && /^\d{4}-/.test(m.time) && (m.side === 'L' || m.side === 'R')));

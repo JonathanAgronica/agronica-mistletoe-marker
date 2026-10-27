@@ -360,3 +360,11 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 #shAccOk .full,#shPooledClear{margin-top:8px}
 #share.settings #shBody .about-logo{order:-3}#share.settings #shSyncCard{order:-2}
 #share>.sheet-head:first-child b{font-size:18px;min-width:0;margin-right:8px}
+
+/* v14: one-tap Find for the current marking session */
+.find-these{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:40px;margin-top:8px;border-radius:14px;
+  background:var(--card2);border:1px solid var(--line);color:var(--lime);font-weight:800;font-size:14px;letter-spacing:.3px}
+.find-these .ic,.use-current .ic{width:20px;height:20px}
+.find-these em,.use-current em{font-style:normal;font-size:12px;font-weight:900;min-width:22px;padding:2px 7px;border-radius:99px;background:var(--lime);color:var(--ink)}
+.find-these:active,.use-current:active{filter:brightness(1.2);transform:scale(.985)}
+.use-current{color:var(--lime);border-color:#98b60366}

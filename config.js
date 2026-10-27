@@ -7,7 +7,7 @@
     ACCESS_STATUS_URL: 'https://170-64-148-102.sslip.io/api/mistletoe/access-status',
     ACCESS_URL: 'https://170-64-148-102.sslip.io/api/mistletoe/access-request',
     ACCESS_MAILTO: 'jonathan@agronicaag.com',
-    APP_VERSION: 'v12'
+    APP_VERSION: 'v14'
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = cfg; else root.MM_CONFIG = cfg;
 })(typeof self !== 'undefined' ? self : this);

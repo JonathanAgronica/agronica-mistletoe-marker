@@ -177,7 +177,7 @@ ok(pl.z1 <= pl1.z1 && pl.count <= MM.SAVE_LIMIT, 'labels layer counts toward the
 ok(MM.planSave(small, 25, 1).z1 <= 19 && MM.planSave(small, 2, 1).z0 >= 8, 'zoom range is clamped (never above 19)');
 const lst = MM.tileList(small, 17, 18); ok(lst.length === MM.countAt(small, 17) + MM.countAt(small, 18) && lst.every(t => t.z >= 17 && t.z <= 18), 'tileList matches counts');
 const sw = nfs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
-ok(/const CACHE = 'mistletoe-marker-v12'/.test(sw), 'cache bumped to v12');
+ok(/const CACHE = 'mistletoe-marker-v14'/.test(sw), 'cache bumped to v14');
 ok(/VIEWED_MAX = 2000/.test(sw) && /mistletoe-tiles-viewed/.test(sw) && /mistletoe-tiles-saved/.test(sw), 'separate runtime tile caches with ~2000 cap');
 ['map.js', 'extras.js', 'config.js', 'share.js', 'ads.json', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'img/helper.png'].forEach(f => ok(sw.includes("'./" + f + "'"), 'precached ' + f));
 const adsJ = JSON.parse(nfs.readFileSync(path.join(__dirname, '../ads.json'), 'utf8')).ads;
