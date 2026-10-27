@@ -151,9 +151,6 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   console.log('Caches:', JSON.stringify(swInfo));
   assert.ok(swInfo.names.includes('mistletoe-marker-v3') && !swInfo.names.includes('mistletoe-marker-v2'));
   ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
-  await page.evaluate(async () => {
-    const fd = new FormData(); fd.append('kml', new File([await (await fetch('/../')).text().catch(() => '')], 'x.kml'));
-  }).catch(() => {});
   await page.evaluate(async (kmlText) => {
     const fd = new FormData(); fd.append('kml', new File([kmlText], 'shared-block.kml', { type: 'application/vnd.google-earth.kml+xml' }));
     await fetch('./share-target', { method: 'POST', body: fd });
@@ -171,7 +168,7 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   await page.setOfflineMode(false);
   console.log('Offline reload OK');
 
-  assert.deepStrictEqual(errors.filter(e => !/favicon/.test(e)), [], 'no console errors');
+  const real = errors.filter(e => !/favicon/.test(e)); if (real.length) console.log('Console errors:', JSON.stringify(real)); assert.deepStrictEqual(real, [], 'no console errors');
   console.log('UI tests passed. Screenshots in', SHOTS);
   await browser.close();
 })().catch(e => { console.error('UI TEST FAILED:', e); process.exit(1); });
