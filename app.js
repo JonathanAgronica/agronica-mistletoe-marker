@@ -13,6 +13,7 @@
       var s = JSON.parse(localStorage.getItem(KEY));
       if (s && Array.isArray(s.marks) && Array.isArray(s.track)) {
         s.extraTracks = s.extraTracks || [];
+        s.created = s.created || Date.now();
         return s;
       }
     } catch (e) { /* ignore */ }
@@ -71,7 +72,9 @@
   function tick() {
     if (!lastPos) return;
     if (Date.now() - lastPos.ts > 15000) return; // stale fix: skip
-    state.track.push({ lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc, ts: Date.now() });
+    var tp = { lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc, ts: Date.now() };
+    state.track.push(tp);
+    if (window.Share) window.Share.trackPoint(tp, sessionId());
     save();
     render();
   }
@@ -129,15 +132,30 @@
   // ---------- marks ----------
   function nextN() { return state.marks.reduce(function (mx, m) { return Math.max(mx, m.n || 0); }, 0) + 1; }
   function haveFix() { return lastPos && Date.now() - lastPos.ts <= 30000; }
+  function sessionId() { return 'S' + (state.created || 0).toString(36); }
+  function newId() { return window.Share ? window.Share.newId() : Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  var SEVS = ['light', 'moderate', 'heavy'];
+  function setSeverity(id, sev) {
+    var m = null; state.marks.forEach(function (x) { if (x.id === id) m = x; });
+    if (!m) return false;
+    if (SEVS.indexOf(sev) >= 0) m.sev = sev; else delete m.sev;
+    save(); render();
+    if (window.Share) window.Share.markUpdated(m, sessionId());
+    return true;
+  }
+  function getVariety() { return state.variety || ''; }
+  function setVariety(v) { v = (v || '').trim(); if (v) state.variety = v; else delete state.variety; save(); }
   function addMark(side, cat, at) {
     if (!running) { msg('Press START first'); return; }
     var p = at || lastPos;
     if (!p || (!at && !haveFix())) { msg('No GPS fix yet – mark not recorded', 5000); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); return; }
-    var m = { side: side, n: nextN(), lat: p.lat, lon: p.lon, acc: p.acc, ts: Date.now() };
+    var m = { id: newId(), side: side, n: nextN(), lat: p.lat, lon: p.lon, acc: p.acc, ts: Date.now() };
     if (cat) m.cat = cat;
+    if (state.variety) m.variety = state.variety;
     m.name = KML.markName(m);
     state.marks.push(m);
     save();
+    if (window.Share) { window.Share.markAdded(m, sessionId()); if (!cat) window.Share.showSeverity(m); }
     if (navigator.vibrate) navigator.vibrate(side === 'L' ? 80 : [60, 40, 60]);
     flash(side, m.name, !!cat);
     render();
@@ -170,6 +188,7 @@
     // undo the most recently recorded mark
     var idx = state.marks.length - 1;
     var m = state.marks.splice(idx, 1)[0];
+    if (window.Share) { window.Share.markRemoved(m.id); if (window.Share.hideSeverity) window.Share.hideSeverity(); }
     save(); render();
     msg('Removed ' + KML.markName(m));
     if (navigator.vibrate) navigator.vibrate(30);
@@ -209,10 +228,10 @@
         meta.appendChild(cl); meta.appendChild(document.createElement('br'));
       } else tag.textContent = KML.markName(m);
       meta.appendChild(document.createTextNode((m.ts ? KML.fmtLocal(m.ts) : 'no time') + ' · ' + m.lat.toFixed(6) + ', ' + m.lon.toFixed(6) +
-        (m.acc != null ? ' · ±' + Math.round(m.acc) + 'm' : '') + (m.imported ? ' · imported' : '')));
+        (m.acc != null ? ' · ±' + Math.round(m.acc) + 'm' : '') + (m.sev ? ' · ' + m.sev : '') + (m.variety ? ' · ' + m.variety : '') + (m.imported ? ' · imported' : '')));
       var del = document.createElement('button'); del.className = 'del'; del.textContent = 'Delete';
       del.onclick = function () {
-        if (confirm('Delete ' + KML.markName(m) + '?')) { state.marks.splice(o.i, 1); save(); render(); }
+        if (confirm('Delete ' + KML.markName(m) + '?')) { state.marks.splice(o.i, 1); if (window.Share) window.Share.markRemoved(m.id); save(); render(); }
       };
       li.appendChild(tag); li.appendChild(meta); li.appendChild(del); ul.appendChild(li);
     });
@@ -313,7 +332,9 @@
   };
   $('clearBtn').onclick = function () {
     if (confirm('Delete ALL marks and track? Export KML first!') && confirm('Really clear everything?')) {
-      state = { marks: [], track: [], extraTracks: [], created: Date.now() }; save(); render();
+      state = { marks: [], track: [], extraTracks: [], created: Date.now() };
+      if (window.Share && window.Share.defaultVariety()) state.variety = window.Share.defaultVariety();
+      save(); render(); if (window.Share) { window.Share.hideSeverity(); window.Share.syncVarietyUi(); }
     }
   };
 
@@ -323,7 +344,8 @@
   try { sw = localStorage.getItem('agronica-mistletoe-view'); } catch (e) {}
   window.App = { gps: { start: gpsStart, stop: gpsStop, subscribe: function (fn) { listeners.push(fn); },
       last: function () { return lastPos; }, status: function () { return statusKind; } },
-    shareKml: shareKml, download: download, toast: toast, setView: setView, stamp: stamp };
+    shareKml: shareKml, download: download, toast: toast, setView: setView, stamp: stamp,
+    setSeverity: setSeverity, getVariety: getVariety, setVariety: setVariety, sessionId: sessionId };
 
   if (!window.isSecureContext && location.hostname !== 'localhost') msg('GPS requires HTTPS – open the https:// address', 10000);
   render();

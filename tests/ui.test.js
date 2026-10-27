@@ -28,6 +28,7 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('agronica-mistletoe-share-v1')) localStorage.setItem('agronica-mistletoe-share-v1', '{"asked":true}'); } catch (e) { /* ignore */ } });   // welcome sheet is covered by tests/share.ui.test.js
   await page.evaluateOnNewDocument((u, l) => { try { localStorage.setItem('mm-tile-url', u); localStorage.setItem('mm-label-url', l); } catch (e) { /* opaque/error documents */ } }, tiles.imagery, tiles.labels);
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const cdp = await page.createCDPSession();
@@ -313,11 +314,11 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v10');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v11');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v10') && !swInfo.names.includes('mistletoe-marker-v9') && !swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v11') && !swInfo.names.includes('mistletoe-marker-v10') && !swInfo.names.includes('mistletoe-marker-v9') && !swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
   assert.ok(swInfo.names.includes('mistletoe-tiles-viewed') && swInfo.names.includes('mistletoe-tiles-saved'), 'separate tile caches: ' + swInfo.names);
   ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg', 'map.js', 'extras.js', 'leaflet.js', 'leaflet.css', 'helper.png', 'ads.json', 'centris-logo.png', 'corteva-logo.jpg', 'example-1.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   // Agronica logo: full-strength in header, >=35% opacity brand mark in both views, not an overlay above buttons

@@ -61,7 +61,7 @@
     if (!res.marks.length) { fmsg('No points found in that KML' + (res.tracks.length ? ' (it only has lines)' : ''), 7000); return false; }
     var pts = res.marks.map(function (m, i) {
       return { id: pointId(), n: m.n || (i + 1), name: m.name || ((m.side || 'M') + '-' + (m.n || i + 1) + (m.cat ? ' ' + KML.catLabel(m.cat) : '')), side: m.side || '', cat: m.cat || '',
-        lat: m.lat, lon: m.lon, ts: m.ts || 0, status: m.status || '', foundTs: m.foundTs || 0 };
+        lat: m.lat, lon: m.lon, ts: m.ts || 0, status: m.status || '', foundTs: m.foundTs || 0, sev: m.sev || '', variety: m.variety || '' };
     });
     var s = { id: 's' + Date.now().toString(36), name: (name || 'KML').replace(/\.(kml|xml)$/i, ''), created: Date.now(),
       points: pts, track: [] };

@@ -46,6 +46,14 @@
   function markName(m) {
     return m.name || ((m.side === 'L' ? 'L-' : 'R-') + m.n + (m.cat && catById(m.cat) ? ' ' + catLabel(m.cat) : ''));
   }
+  var SEVS = ['light', 'moderate', 'heavy'];
+  function sevLabel(v) { return v ? v.charAt(0).toUpperCase() + v.slice(1) : ''; }
+  // severity / variety lines + ExtendedData for a mark (m.sev, m.variety)
+  function sevDesc(m) { return (m.sev && SEVS.indexOf(m.sev) >= 0 ? '\nSeverity: ' + sevLabel(m.sev) : '') + (m.variety ? '\nVariety: ' + m.variety : ''); }
+  function sevData(m) {
+    return (m.sev && SEVS.indexOf(m.sev) >= 0 ? '<Data name="severity"><value>' + m.sev + '</value></Data>' : '') +
+      (m.variety ? '<Data name="variety"><value>' + esc(m.variety) + '</value></Data>' : '');
+  }
   function catStyles(out) {
     CATS.forEach(function (c) {
       ['L', 'R'].forEach(function (s) {
@@ -82,7 +90,7 @@
     marks.forEach(function (m) {
       var acc = (m.acc == null || isNaN(m.acc)) ? 'n/a' : Math.round(m.acc * 10) / 10 + ' m';
       var desc = (m.cat && catById(m.cat) ? 'Category: ' + catLabel(m.cat) + '\n' : '') + 'Side: ' + (m.side === 'L' ? 'LEFT' : 'RIGHT') + '\nTime: ' + fmtLocal(m.ts) +
-        ' (' + new Date(m.ts).toISOString() + ')\nAccuracy: ' + acc;
+        ' (' + new Date(m.ts).toISOString() + ')\nAccuracy: ' + acc + sevDesc(m);
       out.push('<Placemark>');
       out.push('<name>' + esc(markName(m)) + '</name>');
       out.push('<description>' + esc(desc) + '</description>');
@@ -93,7 +101,7 @@
         (m.cat && catById(m.cat) ? '<Data name="cat"><value>' + m.cat + '</value></Data>' + '<Data name="category"><value>' + esc(catLabel(m.cat)) + '</value></Data>' : '') +
         '<Data name="n"><value>' + m.n + '</value></Data>' +
         '<Data name="accuracy"><value>' + (m.acc == null ? '' : m.acc) + '</value></Data>' +
-        '<Data name="ts"><value>' + m.ts + '</value></Data>' +
+        '<Data name="ts"><value>' + m.ts + '</value></Data>' + sevData(m) +
         '</ExtendedData>');
       out.push('<Point><coordinates>' + m.lon.toFixed(7) + ',' + m.lat.toFixed(7) + ',0</coordinates></Point>');
       out.push('</Placemark>');
@@ -166,8 +174,11 @@
         var acc = data.accuracy === '' || data.accuracy == null ? null : parseFloat(data.accuracy);
         var status = data.status === 'found' || data.status === 'treated' ? data.status : (data.found === '1' ? 'found' : '');
         var foundTs = parseInt(data.foundTs, 10) || 0;
-        marks.push({ side: side, cat: cat, n: n, name: pts.length > 1 ? (name || '') + ' #' + (pi + 1) : name, lat: lat, lon: lon,
-          acc: isNaN(acc) ? null : acc, ts: ts, imported: true, status: status, foundTs: foundTs });
+        var mk = { side: side, cat: cat, n: n, name: pts.length > 1 ? (name || '') + ' #' + (pi + 1) : name, lat: lat, lon: lon,
+          acc: isNaN(acc) ? null : acc, ts: ts, imported: true, status: status, foundTs: foundTs };
+        var sv = (data.severity || '').toLowerCase(); if (SEVS.indexOf(sv) >= 0) mk.sev = sv;
+        if (data.variety) mk.variety = data.variety;
+        marks.push(mk);
       });
       if (!pts.length) lss.forEach(function (ls) {
         var p = text(ls, 'coordinates').split(/\s+/).map(function (s) {
@@ -208,7 +219,7 @@
       var nm = p.name || ((p.side === 'L' ? 'L-' : p.side === 'R' ? 'R-' : 'M-') + (p.n || i + 1));
       var status = p.status || 'not found';
       var desc = (p.cat && catById(p.cat) ? 'Category: ' + catLabel(p.cat) + '\n' : '') + 'Side: ' + (p.side === 'L' ? 'LEFT' : p.side === 'R' ? 'RIGHT' : 'unknown') + '\nStatus: ' + status +
-        (p.foundTs ? '\nFound: ' + fmtLocal(p.foundTs) + ' (' + new Date(p.foundTs).toISOString() + ')' : '');
+        (p.foundTs ? '\nFound: ' + fmtLocal(p.foundTs) + ' (' + new Date(p.foundTs).toISOString() + ')' : '') + sevDesc(p);
       out.push('<Placemark><name>' + esc(nm) + '</name><description>' + esc(desc) + '</description>');
       if (p.ts) out.push('<TimeStamp><when>' + new Date(p.ts).toISOString() + '</when></TimeStamp>');
       out.push('<styleUrl>#' + (p.status ? 'found' : p.cat && catById(p.cat) ? 'cat-' + p.cat + '-' + (p.side === 'L' ? 'L' : 'R') : 'mark' + (p.side || 'U')) + '</styleUrl>');
@@ -219,7 +230,7 @@
         '<Data name="ts"><value>' + (p.ts || '') + '</value></Data>' +
         '<Data name="found"><value>' + (p.status ? 1 : 0) + '</value></Data>' +
         '<Data name="status"><value>' + (p.status || '') + '</value></Data>' +
-        '<Data name="foundTs"><value>' + (p.foundTs || '') + '</value></Data></ExtendedData>');
+        '<Data name="foundTs"><value>' + (p.foundTs || '') + '</value></Data>' + sevData(p) + '</ExtendedData>');
       out.push('<Point><coordinates>' + p.lon.toFixed(7) + ',' + p.lat.toFixed(7) + ',0</coordinates></Point></Placemark>');
     });
     out.push('</Folder>');
@@ -233,6 +244,6 @@
     return out.join('\n');
   }
 
-  var api = { CATS: CATS, TYPES: TYPES, typeColor: typeColor, typeShape: typeShape, shapePath: shapePath, legendHtml: legendHtml, catById: catById, catLabel: catLabel, buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
+  var api = { SEVS: SEVS, CATS: CATS, TYPES: TYPES, typeColor: typeColor, typeShape: typeShape, shapePath: shapePath, legendHtml: legendHtml, catById: catById, catLabel: catLabel, buildKml: buildKml, buildFindKml: buildFindKml, parseKml: parseKml, markName: markName, fmtLocal: fmtLocal };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KML = api;
 })(typeof self !== 'undefined' ? self : this);

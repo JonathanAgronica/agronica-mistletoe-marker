@@ -309,3 +309,44 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 #helpForm{display:flex;gap:8px;padding:4px 12px 6px;flex:none}
 #helpInput{flex:1;min-width:0;height:46px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--txt);padding:0 14px;font:inherit;font-size:16px;user-select:text;-webkit-user-select:text}
 #helpSend{min-height:46px;padding:0 20px;font-size:15px;border-radius:14px}
+
+/* ---------- Severity chips (after a mistletoe mark) ---------- */
+.top{position:relative}
+#sevRow{position:absolute;left:12px;right:12px;bottom:-30px;z-index:5;display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:16px;background:#111d;border:1px solid var(--line);
+  box-shadow:var(--shadow);animation:sevIn .18s var(--ease);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#sevRow span{font-size:12px;font-weight:800;color:var(--dim);min-width:34px;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sevRow[data-side="L"]{border-color:var(--blue)}#sevRow[data-side="R"]{border-color:var(--orange)}
+#sevRow button{flex:1;min-height:42px;border-radius:12px;background:var(--card2);font-weight:800;font-size:14px;border:1px solid var(--line)}
+#sevRow button[data-sev="light"]{box-shadow:inset 0 -3px 0 #98b603}
+#sevRow button[data-sev="moderate"]{box-shadow:inset 0 -3px 0 #ffb400}
+#sevRow button[data-sev="heavy"]{box-shadow:inset 0 -3px 0 #d93636}
+#sevRow button.on{background:var(--cream);color:var(--ink)}
+@keyframes sevIn{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+
+/* ---------- Research & data sharing / welcome ---------- */
+#share{position:fixed;inset:0;z-index:45;overflow:auto;padding:12px;padding-top:max(12px,env(safe-area-inset-top));background:linear-gradient(180deg,#0b0b0bd1,#0b0b0bc4 40%,#0b0b0be6),url(img/bg-macadamia-grove.webp) 50% 40%/cover no-repeat fixed var(--bg);animation:sheetIn .3s var(--ease)}
+#share>.sheet-head:first-child{margin:0 0 12px;padding:18px 14px;border-radius:18px;border:1px solid var(--line);font-size:20px;background:#000000aa}
+#shBody{display:flex;flex-direction:column;gap:12px;padding-bottom:30px}
+.sh-hero h2{margin:0 0 8px;font-size:19px;color:var(--orange)}
+.sh-hero p{margin:0 0 10px;line-height:1.45;font-size:14.5px}
+.sh-benefit{display:flex;gap:10px;align-items:flex-start;background:#98b60022;border:1px solid #98b60066;border-radius:12px;padding:10px 12px;color:var(--lime);font-weight:700}
+.sh-benefit .ic{width:22px;height:22px;flex:none}.sh-hero p:last-child{margin-bottom:0}
+.sh-opt{display:flex;gap:14px;align-items:center;cursor:pointer;border:2px solid var(--orange)}
+.sh-opt input{width:30px;height:30px;accent-color:var(--lime);flex:none}
+.sh-opt span{display:flex;flex-direction:column;gap:2px}.sh-opt b{font-size:16px}.sh-opt small{color:var(--dim);font-size:12.5px}
+.sh-what ul{margin:0 0 10px;padding-left:18px;font-size:14px;line-height:1.45;display:flex;flex-direction:column;gap:4px}
+#share input[type=text],#share input[type=email],#share textarea,.varcard select,.varcard input{width:100%;background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:0 12px;height:44px;font:inherit;font-size:16px}
+#share textarea{height:auto;padding:10px 12px;resize:vertical}
+#share select{width:100%;height:44px;font-size:16px}
+#shVarOther,#varOther{margin-top:8px}
+.sh-btns{display:grid;grid-template-columns:2fr 1fr;gap:10px}.sh-btns .start,.sh-btns .soft{min-height:54px;border-radius:16px;font-size:16px;font-weight:900}
+.start.full{width:100%;margin-top:10px}
+.sh-err{min-height:0;color:var(--orange);font-size:13px}.sh-err:empty{display:none}
+.sh-status{font-size:13.5px;line-height:1.4;margin-bottom:4px}
+#shSyncCard.off .sh-status{color:var(--dim)}
+#share button:disabled{opacity:.45;cursor:default}
+.sh-alt{display:block;margin-top:10px;text-align:center;color:var(--orange);text-decoration:underline}
+.sh-foot{text-align:center;margin:0}
+#menuShare span{display:flex;flex-direction:column}#menuShare small{font-weight:500;font-size:12.5px}
+.varcard{display:block}.varcard label{display:block;font-size:14px;color:var(--dim);margin-bottom:6px;font-weight:700}
+.varcard select{display:block;width:100%;padding:0 12px}

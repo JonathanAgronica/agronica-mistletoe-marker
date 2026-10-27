@@ -67,6 +67,8 @@
         <button id="menuBtn" class="sq" aria-label="Menu" title="Menu"><svg class="ic"><use href="#i-menu"/></svg></button>
       </div>
       <div id="msg" role="status"></div>
+      <div id="sevRow" class="hidden" role="group" aria-label="How heavy is the mistletoe?"><span id="sevLbl"></span>
+        <button type="button" data-sev="light">Light</button><button type="button" data-sev="moderate">Moderate</button><button type="button" data-sev="heavy">Heavy</button></div>
     </div>
     <div id="markBtns">
       <button id="btnL" class="mark left"><span>LEFT</span><small id="lastL"></small></button>
@@ -177,6 +179,8 @@
   <div class="actions">
     <button id="exportBtn" class="act"><svg class="ic"><use href="#i-share"/></svg>Export / Share KML</button>
     <button id="importBtn" class="act"><svg class="ic"><use href="#i-upload"/></svg>Import KML</button>
+    <button id="menuShare" class="act"><svg class="ic"><use href="#i-leaf"/></svg><span>Research &amp; data sharing<small id="menuShareSub" class="dim"></small></span></button>
+    <div class="act varcard"><label for="varSel">Variety (this session)</label><select id="varSel"></select><input id="varOther" class="hidden" type="text" maxlength="40" placeholder="Variety name" aria-label="Other variety"></div>
     <button id="menuAbout" class="act"><svg class="ic"><use href="#i-globe"/></svg>About Agronica</button>
     <button id="menuHelp" class="act"><svg class="ic"><use href="#i-help"/></svg>Ask Macca</button>
     <button id="clearBtn" class="act danger"><svg class="ic"><use href="#i-trash"/></svg>New session (clear all)</button>
@@ -187,6 +191,49 @@
   <div class="legend" id="plotLegend"></div>
   <div class="sheet-head"><b>Marks</b><span id="listCount" class="dim"></span></div>
   <ul id="list"></ul>
+</div>
+<div id="share" class="hidden" role="dialog" aria-label="Research and data sharing">
+  <div class="sheet-head"><b id="shTitle">Welcome</b><button id="shClose" class="soft small" type="button"><svg class="ic"><use href="#i-x"/></svg><span>Close</span></button></div>
+  <div id="shBody">
+    <img src="img/agronica-logo.svg" alt="Agronica" class="about-logo">
+    <div class="card sh-hero">
+      <h2>G'day, and welcome to Mistletoe Marker!</h2>
+      <p>This free app from <b>Agronica</b> lets you walk your rows, tap LEFT or RIGHT when you pass mistletoe, and keep a GPS record you can export as KML and use to find those clumps again later. It works offline.</p>
+      <p>Agronica is building a <b>mistletoe modelling database</b> to research the <b>distribution and severity of mistletoe across districts</b>. If you're happy to help, you can share your marks with us. It's completely optional.</p>
+      <p class="sh-benefit"><svg class="ic"><use href="#i-check"/></svg><span>Sharers can request access to the combined district mistletoe data.</span></p>
+    </div>
+    <label id="shOptRow" class="card sh-opt"><input type="checkbox" id="shOpt"><span><b>Share my marks with Agronica for research</b><small>Off unless you tick this. You can turn it off anytime.</small></span></label>
+    <div class="card sh-what"><div class="card-title">What is shared (only if you opt in)</div>
+      <ul>
+        <li>Mark locations, type (mistletoe or other issue), left/right side and time</li>
+        <li>Optional severity (Light / Moderate / Heavy) and variety</li>
+        <li>Optional thinned GPS track of where you walked</li>
+        <li>A random device ID. <b>No name</b> unless you choose to add one below</li>
+      </ul>
+      <p class="dim small-txt">Used for research into mistletoe distribution and severity. Turn sharing off anytime in Menu &rarr; Research &amp; data sharing: uploads stop and anything still queued on your phone is deleted. Data already received stays in the research database - email jonathan@agronicaag.com to ask for removal.</p>
+    </div>
+    <div class="card sh-fields"><div class="card-title">Optional details</div>
+      <div class="field"><label for="shName">Name</label><input id="shName" type="text" autocomplete="name" maxlength="80"></div>
+      <div class="field"><label for="shEmail">Email</label><input id="shEmail" type="email" autocomplete="email" maxlength="120" inputmode="email"></div>
+      <div class="field"><label for="shFarm">Farm / business</label><input id="shFarm" type="text" maxlength="80"></div>
+      <div class="field"><label for="shDistrict">District</label><input id="shDistrict" type="text" maxlength="60" placeholder="e.g. Bundaberg, Gympie, Northern Rivers"></div>
+      <div class="field"><label for="shVar">Default macadamia variety</label><select id="shVar"></select><input id="shVarOther" class="hidden" type="text" maxlength="40" placeholder="Variety name" aria-label="Other variety"></div>
+    </div>
+    <div id="shMsg" role="status" class="sh-err"></div>
+    <div class="sh-btns"><button id="shSave" class="start" type="button">Save</button><button id="shNotNow" class="soft" type="button">Not now</button></div>
+    <div id="shSyncCard" class="card"><div class="card-title">Sync &amp; collaboration</div>
+      <div id="shStatus" role="status" class="sh-status"></div>
+      <button id="shSync" class="soft full" type="button"><svg class="ic"><use href="#i-upload"/></svg><span>Sync now</span></button>
+      <button id="shReq" class="soft full" type="button"><svg class="ic"><use href="#i-globe"/></svg><span>Request collaborative data</span></button>
+      <div id="shReqHint" class="dim small-txt"></div>
+      <div id="shAccess" class="hidden"><div class="field"><label for="shReqEmail">Your email (required)</label><input id="shReqEmail" type="email" autocomplete="email" inputmode="email"></div>
+        <div class="field"><label for="shReqMsg">Message (optional)</label><textarea id="shReqMsg" rows="3" maxlength="500" placeholder="What would you like to use the data for?"></textarea></div>
+        <button id="shReqSend" class="start full" type="button">Send request</button>
+        <a id="shReqMail" href="#" class="dim small-txt sh-alt">Or email Agronica instead</a>
+        <div id="shReqNote" role="status" class="sh-err"></div></div>
+    </div>
+    <p class="dim small-txt sh-foot">Questions? Ask Macca (the ? button) or contact Agronica from About.</p>
+  </div>
 </div>
 <div id="about" class="hidden" role="dialog" aria-label="About Agronica">
   <div class="sheet-head"><b>About Agronica</b><button id="closeAbout" class="soft small"><svg class="ic"><use href="#i-x"/></svg><span>Close</span></button></div>
@@ -213,11 +260,13 @@
 </div>
 <div id="toast" role="status"></div>
 <script src="vendor/leaflet/leaflet.js"></script>
+<script src="config.js"></script>
 <script src="geo.js"></script>
 <script src="kml.js"></script>
 <script src="map.js"></script>
 <script src="app.js"></script>
 <script src="find.js"></script>
 <script src="extras.js"></script>
+<script src="share.js"></script>
 </body>
 </html>
