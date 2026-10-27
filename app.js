@@ -346,7 +346,8 @@
     // a new service worker (skipWaiting + clients.claim) took over: reload straight away unless GPS is running,
     // in which case reload as soon as it stops (marks/sessions are kept in localStorage either way)
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (!hadCtl || reloaded) return;
+      if (!hadCtl) { hadCtl = true; return; } // first install claiming the page: nothing to update
+      if (reloaded) return;
       if (statusKind === 'off') { reloaded = true; toast('App updated - reloading...', 1500); setTimeout(function () { location.reload(); }, 400); }
       else { updatePending = true; toast('App updated - will reload when GPS stops', 8000); }
     });
