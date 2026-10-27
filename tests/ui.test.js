@@ -3,6 +3,7 @@
 const puppeteer = require('puppeteer-core');
 const fs = require('fs'), path = require('path'), assert = require('assert');
 const GEO = require('../geo.js');
+const tileStub = require('./tile-stub.js');
 const BASE = process.argv[2] || 'http://localhost:8123/';
 const SHOTS = process.argv[3] || '/workspace/shots';
 fs.mkdirSync(SHOTS, { recursive: true });
@@ -19,6 +20,7 @@ const foreign = own.replace('</Folder>', '<Placemark><name>Gum tree 9</name><Poi
 fs.writeFileSync('/tmp/sample.kml', foreign);
 
 (async () => {
+  const tiles = await tileStub.start();
   const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--disable-gpu'] });
   const ctx = browser.defaultBrowserContext();
   await ctx.overridePermissions(new URL(BASE).origin, ['geolocation']);
@@ -26,6 +28,7 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  await page.evaluateOnNewDocument((u, l) => { try { localStorage.setItem('mm-tile-url', u); localStorage.setItem('mm-label-url', l); } catch (e) { /* opaque/error documents */ } }, tiles.imagery, tiles.labels);
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const cdp = await page.createCDPSession();
   await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DL, eventsEnabled: false });
@@ -57,6 +60,19 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   await page.screenshot({ path: SHOTS + '/2-mark-running.png' });
   const big = await page.$eval('#btnL', e => { const r = e.getBoundingClientRect(); return [r.width, r.height]; });
   assert.ok(big[0] > 150 && big[1] > 250, 'LEFT button is huge: ' + big);
+  // ad strip (slim, ~44px) + About/Help links never cover or shrink the controls
+  const lay = await page.evaluate(() => {
+    const r = s => { const e = document.querySelector(s); const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height, r: b.right, b: b.bottom }; };
+    const hit = (a, b) => !(a.r <= b.x || b.r <= a.x || a.b <= b.y || b.b <= a.y);
+    const ctr = ['#btnL', '#btnR', '#btnOL', '#btnOR', '#startStop', '#undo', '#menuBtn', '#info'].map(s => [s, r(s)]);
+    const over = ['#helpFab', '#aboutLink'].map(s => [s, r(s)]);
+    return { ad: r('#adbar'), tabs: r('.tabs'), over: over.map(o => [o[0], ctr.filter(c => hit(o[1], c[1])).map(c => c[0])]), helpFab: r('#helpFab'), about: r('#aboutLink'), vis: !document.querySelector('#adbar').classList.contains('hidden') };
+  });
+  console.log('Layout:', JSON.stringify(lay));
+  assert.ok(lay.vis && lay.ad.h >= 42 && lay.ad.h <= 46, 'ad strip is ~44px: ' + lay.ad.h);
+  assert.ok(Math.abs(lay.ad.b - lay.tabs.y) < 2, 'ad strip sits directly above the tab bar');
+  assert.deepStrictEqual(lay.over.flatMap(o => o[1]), [], 'help/about links do not cover controls: ' + JSON.stringify(lay.over));
+  assert.ok(lay.helpFab.w >= 40 && lay.helpFab.h >= 40 && lay.about.h >= 24, 'help + about links are tappable');
   await page.click('#undo');
   // ----- Other Left / Other Right (category marks) -----
   const ob = await page.$$eval('#otherBtns button', bs => bs.map(b => { const r = b.getBoundingClientRect(); return [b.textContent.trim(), r.width, r.height]; }));
@@ -93,7 +109,48 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   await page.click('#menuBtn'); await sleep(400);
   const lst = await page.$$eval('#list li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
   assert.ok(lst.some(x => x.includes('Broken irrigation')) && lst.some(x => x.includes('Phytophthora treatment')) && lst.some(x => x.includes('Nutritional issue')), JSON.stringify(lst));
+  await sleep(1200);
+  const mm = await page.evaluate(() => window.__menuMap().stats());
+  console.log('Menu map:', JSON.stringify({ ...mm, markers: mm.markers.length }));
+  assert.ok(mm.built && mm.marks === marksBefore + 3 && mm.tracks >= 1, 'menu map shows track + all marks: ' + JSON.stringify({ ...mm, markers: 0 }));
+  assert.ok(mm.hasPos && mm.hasAccuracy, 'menu map shows current position + accuracy circle');
+  assert.ok(mm.loadedTiles > 0 && mm.tileSrc.startsWith('http://127.0.0.1:'), 'satellite tiles loaded (stubbed): ' + mm.tileSrc);
+  assert.ok(mm.attribution.includes('Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'), 'Esri attribution: ' + mm.attribution);
+  assert.ok(await page.$eval('#plotLegend', e => e.querySelectorAll('.lg').length >= 5), 'legend kept in menu');
+  assert.ok(mm.markers.some(m => /<polygon points="14,3.5/.test(m.html)) && mm.markers.some(m => /<polygon points="14,3.8/.test(m.html)) && mm.markers.some(m => /<rect/.test(m.html)), 'per-type marker shapes (diamond/triangle/square)');
+  assert.ok(mm.markers.some(m => /#0a8fb5/.test(m.html)) && mm.markers.some(m => /#c19bff/.test(m.html)), 'L darker / R lighter per-type colours on the map');
   await page.screenshot({ path: SHOTS + '/2c-menu-categories.png' });
+  await page.evaluate(() => document.querySelector('#menuMap').scrollIntoView()); await sleep(300);
+  await page.screenshot({ path: SHOTS + '/2d-menu-map.png' });
+  // tap a mark -> popup with details
+  await page.click('#menuMap .mm-mark'); await sleep(400);
+  const pop = await page.$eval('.leaflet-popup-content', e => e.textContent.replace(/\s+/g, ' '));
+  assert.ok(/Side/.test(pop) && /Position/.test(pop) && /Marked/.test(pop), 'mark popup shows details: ' + pop);
+  assert.strictEqual(await page.$$eval('.mm-pop .pp-a button', b => b.length), 0, 'no Found/Treated buttons in the menu map');
+  await page.screenshot({ path: SHOTS + '/2e-menu-popup.png' });
+  // labels toggle + follow-me
+  await page.click('#menuMap [data-act=labels]'); await sleep(500);
+  assert.ok((await page.evaluate(() => window.__menuMap().stats())).labelsLayer, 'labels overlay on');
+  assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-map-v1')).labels === true), 'labels preference remembered');
+  await page.click('#menuMap [data-act=labels]'); await sleep(200);
+  await page.click('#menuMap [data-act=follow]'); await sleep(300);
+  assert.ok((await page.evaluate(() => window.__menuMap().stats())).follow, 'follow-me on');
+  await page.click('#menuMap [data-act=follow]');
+  // "Save map area for offline": zoom out a little, save, check the saved tile cache (zoom <= 19, within the limit)
+  await page.evaluate(() => { const m = window.__menuMap().getMap(); m.setZoom(16, { animate: false }); }); await sleep(500);
+  await page.click('#menuMap [data-act=save]');
+  await page.waitForFunction(() => /^Saved \d+ of \d+ tiles/.test(document.querySelector('#menuMap .mapstatus').textContent), { timeout: 30000 });
+  const saveTxt = await page.$eval('#menuMap .mapstatus', e => e.textContent);
+  const savedInfo = await page.evaluate(async () => {
+    const c = await caches.open('mistletoe-tiles-saved'), ks = await c.keys();
+    const zs = ks.map(k => +new URL(k.url).pathname.split('/')[3]);
+    return { n: ks.length, zmin: Math.min(...zs), zmax: Math.max(...zs), last: window.__menuMap().stats().lastSave };
+  });
+  console.log('Save area:', saveTxt, JSON.stringify(savedInfo));
+  assert.ok(savedInfo.n > 100 && savedInfo.n <= 1500 && savedInfo.zmax === 19 && savedInfo.zmin <= 16 && savedInfo.last.fail === 0, 'saved tiles up to zoom 19 within limit');
+  const stubHits = tiles.stats.imagery;
+  await page.evaluate(() => { const m = window.__menuMap().getMap(); m.setZoom(18, { animate: false }); }); await sleep(800);
+  assert.ok(tiles.stats.imagery === stubHits, 'tiles in the saved area come from the cache, not the network (' + (tiles.stats.imagery - stubHits) + ' new requests)');
   await page.click('#closeSheet');
   const mkml = await page.evaluate(() => KML.buildKml(JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')), {}));
   ['cat-irrigation-L', 'cat-phytophthora-R', 'cat-nutrition-L'].forEach(id => assert.ok(mkml.includes('<styleUrl>#' + id + '</styleUrl>'), id));
@@ -160,10 +217,36 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   const rows = await page.$$eval('#ptList li', l => l.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
   console.log('List:', JSON.stringify(rows));
   assert.strictEqual(rows.length, 3);
-  const mapPix = await page.$eval('#map', c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; });
-  assert.ok(mapPix > 1000, 'map has content');
-  await page.evaluate(() => document.querySelector('#map').scrollIntoView());
-  await sleep(300); await page.screenshot({ path: SHOTS + '/7-find-map.png' });
+  await sleep(1000);
+  const fm = await page.evaluate(() => window.Find._map().stats());
+  console.log('Find map:', JSON.stringify({ ...fm, markers: fm.markers.map(m => m.cls) }));
+  assert.ok(fm.built && fm.marks === 3 && fm.tracks === 1, 'find map: track + 3 marks');
+  assert.ok(fm.hasPos && fm.hasAccuracy && fm.accRadius > 0 && fm.hasRadius && fm.radiusM === 30 && fm.posHeading, 'find map: position + accuracy circle + heading + alert radius circle');
+  assert.ok(fm.markers.filter(m => /done/.test(m.cls)).length === 2 && fm.markers.some(m => /treated/.test(m.cls)), 'found/treated styling on the map');
+  assert.ok(fm.loadedTiles > 0 && fm.tileSrc.startsWith('http://127.0.0.1:') && /\/imagery\/tile\/\d+\/\d+\/\d+/.test(fm.tileSrc), 'satellite tiles drawn under the find map');
+  assert.ok(fm.attribution.includes('Tiles © Esri'), 'attribution shown');
+  assert.ok(await page.$eval('#findLegend', e => e.querySelectorAll('.lg').length >= 8), 'legend kept in find');
+  await page.evaluate(() => document.querySelector('#findMap').scrollIntoView());
+  await sleep(400); await page.screenshot({ path: SHOTS + '/7-find-map.png' });
+  // tap an unfound mark -> popup with Found / Treated; Found marks it, the popup then offers UNDO
+  const unf = await page.$('#findMap .mm-mark:not(.done)');
+  await unf.click(); await sleep(500);
+  assert.ok(await page.$eval('.mm-pop .found-btn', b => /FOUND/.test(b.textContent)) && await page.$('.mm-pop .treated-btn'), 'popup has Found + Treated');
+  assert.ok(/Distance/.test(await page.$eval('.mm-pop', e => e.textContent)), 'popup shows distance in Find');
+  await page.screenshot({ path: SHOTS + '/7b-find-popup.png' });
+  await page.click('.mm-pop button[data-status=found]'); await sleep(500);
+  assert.strictEqual(await txt('progTxt'), '3 of 3 found');
+  await (await page.$('#findMap .mm-mark.done.found, #findMap .mm-mark.done:not(.treated)')).click(); await sleep(400);
+  assert.ok(await page.$eval('.mm-pop .found-btn', b => /UNDO/.test(b.textContent)), 'popup offers undo for a found mark');
+  await page.click('.mm-pop button[data-status=found]'); await sleep(500);
+  assert.strictEqual(await txt('progTxt'), '2 of 3 found');
+  // follow-me: map centre tracks the position
+  await page.click('#findMap [data-act=follow]'); await sleep(300);
+  await setPos(P(0, 40)); await sleep(1500);
+  const fc = await page.evaluate(() => window.Find._map().stats());
+  assert.ok(fc.follow && GEO.haversine({ lat: fc.center[0], lon: fc.center[1] }, P(0, 40)) < 8, 'follow-me centres the map on you: ' + JSON.stringify({ follow: fc.follow, c: fc.center, want: P(0, 40), pos: await page.evaluate(() => window.Find._debug().pos) }));
+  await page.click('#findMap [data-act=follow]'); await page.click('#findMap [data-act=fit]'); await sleep(300);
+  assert.ok((await page.evaluate(() => window.Find._map().stats())).autoFit, 'fit re-enables auto-fit');
   // radius slider
   await page.$eval('#radius', e => { e.value = 60; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); });
   assert.strictEqual(await txt('radiusVal'), '60 m');
@@ -230,12 +313,13 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v8');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v9');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
-  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v9') && !swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
+  assert.ok(swInfo.names.includes('mistletoe-tiles-viewed') && swInfo.names.includes('mistletoe-tiles-saved'), 'separate tile caches: ' + swInfo.names);
+  ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg', 'map.js', 'extras.js', 'leaflet.js', 'leaflet.css', 'helper.png', 'ads.json', 'centris-logo.png', 'corteva-logo.jpg', 'example-1.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   // Agronica logo: full-strength in header, >=35% opacity brand mark in both views, not an overlay above buttons
   const logoInfo = await page.evaluate(() => {
     const q = s => document.querySelector(s), cs = e => getComputedStyle(e);
@@ -270,14 +354,116 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   assert.ok(sessNames.some(n => n.startsWith('shared-block')), 'shared file loaded as session');
   assert.strictEqual(await page.evaluate(() => document.body.dataset.view), 'find');
 
+
+  // ----- satellite tile runtime cache: viewed tiles cached + capped (~2000), saved area kept separately -----
+  const tc = await page.evaluate(async () => {
+    const v = await caches.open('mistletoe-tiles-viewed'), ks = await v.keys();
+    return { viewed: ks.length, sample: ks[0] && new URL(ks[0].url).pathname };
+  });
+  console.log('Tile cache:', JSON.stringify(tc), 'stub served', tiles.stats.imagery, 'imagery +', tiles.stats.labels, 'label tiles');
+  assert.ok(tc.viewed >= 5 && /\/imagery\/tile\//.test(tc.sample), 'viewed tiles are cached at runtime');
+  const capInfo = await page.evaluate(async () => {
+    const v = await caches.open('mistletoe-tiles-viewed');
+    for (let i = 0; i < 2150; i++) await v.put('http://127.0.0.1:1/dummy/tile/1/' + i + '/0', new Response('x'));
+    const before = (await v.keys()).length;
+    const reg = await navigator.serviceWorker.ready;
+    await new Promise(res => { navigator.serviceWorker.addEventListener('message', function f(e) { if (e.data && e.data.type === 'tiles-trimmed') { navigator.serviceWorker.removeEventListener('message', f); res(); } }); reg.active.postMessage({ type: 'trim-tiles' }); });
+    const ks = await v.keys();
+    return { before, after: ks.length, firstDummyGone: !(await v.match('http://127.0.0.1:1/dummy/tile/1/0/0')), lastKept: !!(await v.match('http://127.0.0.1:1/dummy/tile/1/2149/0')) };
+  });
+  console.log('Tile cap:', JSON.stringify(capInfo));
+  assert.ok(capInfo.before > 2000 && capInfo.after === 2000 && capInfo.firstDummyGone && capInfo.lastKept, 'tile cache trimmed to 2000 (oldest evicted)');
+
+  // ----- About Agronica -----
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.click('#tabMark'); await sleep(300);
+  await page.click('#aboutLink'); await sleep(900);
+  assert.ok(await page.$eval('#about', e => !e.classList.contains('hidden')), 'About opens from the small link on the main screen');
+  const ab = await page.evaluate(() => ({
+    tel: document.querySelector('#abCall').getAttribute('href'), mails: [...document.querySelectorAll('[id^=abMail]')].map(a => a.getAttribute('href').split('?')[0]),
+    maps: document.querySelector('#abMaps').href, web: document.querySelector('#abWeb').href, webTarget: document.querySelector('#abWeb').target,
+    text: document.querySelector('#about').textContent.replace(/\s+/g, ' '), map: window.Extras.aboutMapStats() }));
+  console.log('About:', JSON.stringify({ ...ab, text: ab.text.length, map: { ...ab.map, markers: 0 } }));
+  assert.strictEqual(ab.tel, 'tel:+61475570872'); assert.deepStrictEqual(ab.mails, ['mailto:jonathan@agronicaag.com', 'mailto:admin@agronicaag.com']);
+  assert.ok(/google\.com\/maps\/search\/.*Goodwood%20Road/.test(ab.maps) && ab.web === 'https://www.agronicaag.com/' && ab.webTarget === '_blank');
+  assert.ok(/4468 Goodwood Road, Alloway QLD/.test(ab.text) && /\(\+61\) 475 570 872/.test(ab.text) && /Pest and Disease Management/.test(ab.text) && /Soil and Nutrition Management/.test(ab.text) && /Data Management and ESG/.test(ab.text));
+  assert.ok(ab.map && ab.map.built && ab.map.loadedTiles > 0, 'About map shows satellite tiles');
+  await page.screenshot({ path: SHOTS + '/9-about.png' });
+  await page.click('#closeAbout'); await sleep(200);
+  await page.click('#menuBtn'); await sleep(300); await page.click('#menuAbout'); await sleep(400);
+  assert.ok(await page.$eval('#about', e => !e.classList.contains('hidden')) && await page.$eval('#sheet', e => e.classList.contains('hidden')), 'About opens from the menu');
+  await page.click('#closeAbout');
+
+  // ----- Help bot (offline FAQ) -----
+  await page.click('#helpFab'); await sleep(500);
+  assert.ok(await page.$eval('#help', e => !e.classList.contains('hidden')));
+  assert.strictEqual(await page.$eval('.help-head img', i => i.getAttribute('src')), 'img/helper.png');
+  assert.ok(await page.$eval('.help-head img', i => i.complete && i.naturalWidth === 256), 'helper avatar is the 256px cartoon');
+  const chipTxt = await page.$$eval('#helpChips .qchip', c => c.map(x => x.textContent));
+  console.log('Help chips:', JSON.stringify(chipTxt));
+  ['Starting', 'Marking L / R', 'Other categories', 'Undo / delete', 'Export / share KML', 'Import / merge maps', 'Find mode', 'Alerts', 'Satellite & offline maps', 'iPhone vs Android', 'Add to home screen', 'Privacy & data', 'Contact Agronica'].forEach(c => assert.ok(chipTxt.includes(c), 'chip ' + c));
+  const qa = [['how do I start', 'start'], ['how do I mark left and right', 'mark'], ['what are the other buttons for irrigation', 'other'], ['I made a mistake, how do I undo', 'undo'], ['how do I email my KML to someone', 'export'],
+    ['how do two people merge their maps', 'import'], ['how does find mode guide me back', 'find'], ['how do I change the alert radius', 'alerts'], ['does the satellite map work with no signal', 'maps'],
+    ['is it different on iPhone', 'phones'], ['how do I add it to my home screen', 'install'], ['is my data private', 'privacy']];
+  const wrong = await page.evaluate(qa => qa.filter(q => { const r = window.Extras.answer(q[0]); return !r.faq || r.faq.id !== q[1]; }).map(q => q[0]), qa);
+  assert.deepStrictEqual(wrong, [], 'FAQ keyword matching');
+  await page.type('#helpInput', 'how do I share my kml with a colleague'); await page.click('#helpSend'); await sleep(600);
+  let log = await page.$eval('#helpLog', e => e.textContent);
+  assert.ok(/Export \/ Share KML/.test(log), 'bot answers the export question offline');
+  await page.click('#helpChips [data-faq=install]'); await sleep(500);
+  assert.ok(/Add to Home Screen/.test(await page.$eval('#helpLog', e => e.textContent)));
+  await page.type('#helpInput', 'what is the weather tomorrow'); await page.click('#helpSend'); await sleep(600);
+  assert.ok(await page.$('#helpLog #helpContact'), 'unknown question falls back to Contact Agronica');
+  await page.screenshot({ path: SHOTS + '/10-help.png' });
+  await page.click('#helpLog #helpContact'); await sleep(900);
+  assert.ok(await page.$eval('#about', e => !e.classList.contains('hidden')) && await page.$eval('#help', e => e.classList.contains('hidden')), 'Contact Agronica opens About');
+  await page.click('#closeAbout');
+  await page.click('#menuBtn'); await sleep(300); await page.click('#menuHelp'); await sleep(400);
+  assert.ok(await page.$eval('#help', e => !e.classList.contains('hidden')), 'Help opens from the menu'); await page.click('#closeHelp');
+
+  // ----- ad strip -----
+  const adInfo = await page.evaluate(() => {
+    const ads = window.Extras.ads();
+    return { names: ads.map(a => a.name + (a.by ? ' by ' + a.by : '')), keys: ads.map(a => Object.keys(a).sort().join()), first: ads[0], href: document.querySelector('#adLink').href, target: document.querySelector('#adLink').target,
+      rel: document.querySelector('#adLink').rel, img: document.querySelector('#adImg').naturalWidth, idx: window.Extras.adIndex(), name: document.querySelector('#adName').textContent };
+  });
+  console.log('Ads:', JSON.stringify(adInfo.names));
+  assert.deepStrictEqual(adInfo.names, ['Kimura by Centris', 'Zimba by Centris', 'Define 250 EC by Centris', 'Transform by Corteva', 'N-Boost by Centris', 'Example product — your ad here', 'Example product — your ad here', 'Example product — your ad here']);
+  assert.ok(adInfo.target === '_blank' && /noopener/.test(adInfo.rel) && adInfo.img > 0 && adInfo.name === adInfo.names[adInfo.idx] && /^https:\/\//.test(adInfo.href) && adInfo.first.name === 'Kimura' && adInfo.first.url.includes('centrissolutions.com.au'), JSON.stringify(adInfo));
+  const idx0 = adInfo.idx; await sleep(7000);
+  const idx1 = await page.evaluate(() => window.Extras.adIndex());
+  assert.ok(idx1 === (idx0 + 1) % 8, 'ad strip auto-cycles every ~6 s: ' + idx0 + ' -> ' + idx1);
+  await page.evaluate(() => document.querySelector('#btnL').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await page.evaluate(() => window.Extras.tick()); await sleep(100);
+  assert.strictEqual(await page.evaluate(() => window.Extras.adIndex()), idx1, 'cycling pauses while the user is marking');
+  await page.screenshot({ path: SHOTS + '/11-adbar.png' });
+
   // offline reload from cache
+  tiles.kill();   // the service worker's own fetches are not covered by page.setOfflineMode, so really take the tile server away
   await page.setOfflineMode(true);
   await page.goto(BASE, { waitUntil: 'load' }); await sleep(500);
+  await page.click('#tabFind'); await sleep(2000);
   assert.ok((await txt('progTxt')).includes('of 3'));
+  const off = await page.evaluate(async () => {
+    const hit = u => fetch(u).then(async r => ({ ok: r.ok, fb: (await r.blob()).size < 100 ? '1' : '' })).catch(e => ({ err: String(e) }));
+    const v = await caches.open('mistletoe-tiles-saved'), k = (await v.keys())[0].url;
+    return { saved: await hit(k), unseen: await hit(k.replace(/\/tile\/\d+\//, '/tile/3/')), note: document.querySelector('#findMap .mapnote').textContent, onLine: navigator.onLine, st: window.Find._map().stats(), adOk: window.Extras.ads().length };
+  });
+  console.log('Offline map:', JSON.stringify({ ...off, st: { ...off.st, markers: 0 } }));
+  assert.ok(off.saved.ok && !off.saved.fb, 'saved tile served offline'); assert.ok(off.unseen.ok && off.unseen.fb === '1', 'uncached tile -> blank fallback (dark background), no error');
+assert.ok(off.st.built && off.st.marks === 3 && off.st.loadedTiles > 0, 'map + cached tiles still render offline: ' + off.st.loadedTiles);
+  assert.ok(off.adOk === 8, 'ads.json served from cache offline');
+  await page.screenshot({ path: SHOTS + '/12-offline-map.png' });
+  // pan somewhere never viewed: no tiles offline -> dark background + a note, no errors
+  await page.evaluate(() => window.Find._map().getMap().setView([10, 10], 12, { animate: false })); await sleep(2500);
+  const dark = await page.evaluate(() => ({ note: document.querySelector('#findMap .mapnote').textContent, shown: getComputedStyle(document.querySelector('#findMap .mapnote')).display, bg: getComputedStyle(document.querySelector('#findMap .mapcanvas')).backgroundColor }));
+  console.log('Offline, no tiles:', JSON.stringify(dark));
+  assert.ok(/imagery/.test(dark.note) && dark.shown !== 'none' && dark.bg === 'rgb(13, 13, 13)', 'graceful dark fallback with a note');
+  await page.screenshot({ path: SHOTS + '/13-offline-no-tiles.png' });
   await page.setOfflineMode(false);
   console.log('Offline reload OK');
 
   const real = errors.filter(e => !/favicon/.test(e)); if (real.length) console.log('Console errors:', JSON.stringify(real)); assert.deepStrictEqual(real, [], 'no console errors');
   console.log('UI tests passed. Screenshots in', SHOTS);
-  await browser.close();
+  await browser.close(); tiles.close();
 })().catch(e => { console.error('UI TEST FAILED:', e); process.exit(1); });

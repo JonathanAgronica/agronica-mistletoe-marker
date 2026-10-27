@@ -157,4 +157,34 @@ assert.deepStrictEqual(r.marks.map(m => m.cat), ['', 'irrigation', 'phytophthora
 assert.strictEqual(GEO.speechText('L', 20, 1, 'Broken irrigation'), 'Broken irrigation left, 20 metres');
 assert.strictEqual(GEO.speechText('R', 3, 3, 'Nutritional issue'), 'Nutritional issue right, arrived'); n += 2;
 
+// --- satellite map helpers (map.js), service worker + ads config
+const path = require('path'), nfs = require('fs');
+
+const MM = require('../map.js');
+assert.strictEqual(MM.TILE_URL, 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'); n++;
+assert.strictEqual(MM.ATTR, 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'); n++;
+assert.strictEqual(MM.fillUrl(MM.TILE_URL, 17, 74000, 115600), 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/17/115600/74000'); n++;
+// known tile: Brisbane at z10 is x=947,y=593 (slippy-map scheme, checked independently)
+assert.strictEqual(MM.tileX(153.0251, 10), 947); assert.strictEqual(MM.tileY(-27.4698, 10), 593); n += 2;
+const small = { n: -27.4995, s: -27.5005, e: 153.0005, w: 152.9995 };            // ~110 m box
+let pl = MM.planSave(small, 16, 1);
+ok(pl.z0 === 16 && pl.z1 === 19 && pl.count <= MM.SAVE_LIMIT && !pl.capped, 'small area saves right up to zoom 19: ' + JSON.stringify(pl));
+const big = { n: -27.40, s: -27.60, e: 153.10, w: 152.90 };                       // ~20 km box
+pl = MM.planSave(big, 12, 1);
+ok(pl.z1 < 19 && pl.capped && pl.count <= MM.SAVE_LIMIT, 'large area is capped below zoom 19 within the limit: ' + JSON.stringify(pl));
+pl = MM.planSave(big, 12, 2); const pl1 = MM.planSave(big, 12, 1);
+ok(pl.z1 <= pl1.z1 && pl.count <= MM.SAVE_LIMIT, 'labels layer counts toward the limit');
+ok(MM.planSave(small, 25, 1).z1 <= 19 && MM.planSave(small, 2, 1).z0 >= 8, 'zoom range is clamped (never above 19)');
+const lst = MM.tileList(small, 17, 18); ok(lst.length === MM.countAt(small, 17) + MM.countAt(small, 18) && lst.every(t => t.z >= 17 && t.z <= 18), 'tileList matches counts');
+const sw = nfs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
+ok(/const CACHE = 'mistletoe-marker-v9'/.test(sw), 'cache bumped to v9');
+ok(/VIEWED_MAX = 2000/.test(sw) && /mistletoe-tiles-viewed/.test(sw) && /mistletoe-tiles-saved/.test(sw), 'separate runtime tile caches with ~2000 cap');
+['map.js', 'extras.js', 'ads.json', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'img/helper.png'].forEach(f => ok(sw.includes("'./" + f + "'"), 'precached ' + f));
+const adsJ = JSON.parse(nfs.readFileSync(path.join(__dirname, '../ads.json'), 'utf8')).ads;
+ok(adsJ.length >= 8 && adsJ.every(a => a.name && a.text && a.image && /^https:\/\//.test(a.url)), 'ads.json entries have name/text/image/url');
+ok(adsJ.slice(0, 5).map(a => a.name + ' by ' + a.by).join('|') === 'Kimura by Centris|Zimba by Centris|Define 250 EC by Centris|Transform by Corteva|N-Boost by Centris', 'real ads first');
+ok(adsJ.slice(5).every(a => /^Example product/.test(a.name) && a.url === 'https://www.agronicaag.com'), 'placeholders after the real ads');
+ok(adsJ.every(a => nfs.existsSync(path.join(__dirname, '..', a.image))), 'every ad image exists locally');
+ok(nfs.existsSync(path.join(__dirname, '../vendor/leaflet/leaflet.js')) && !/unpkg|cdn/i.test(nfs.readFileSync(path.join(__dirname, '../index.html'), 'utf8').replace(/agronicaag/g, '')), 'Leaflet vendored, no CDN in index.html');
+
 console.log('geo/kml tests passed:', n, 'assertions');

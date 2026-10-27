@@ -1,0 +1,13 @@
+{
+  "_note": "Edit this file to change the ad strip - no code change needed. Each ad: name, by (optional), text (one line), image (path or URL), url (opens in a new tab). Ads show in order, one every ~6 seconds.",
+  "ads": [
+    { "name": "Kimura", "by": "Centris", "text": "Highly effective and residual control of a wide range of pests in fruit trees, vines and tree nuts.", "image": "img/ads/centris-logo.png", "url": "https://centrissolutions.com.au/insecticides-and-nematicides/#kimura" },
+    { "name": "Zimba", "by": "Centris", "text": "A unique foliar micronutrient fertiliser formulated for Australian growers.", "image": "img/ads/centris-logo.png", "url": "https://centrissolutions.com.au/biostimulants-and-fertilisers/#zimba" },
+    { "name": "Define 250 EC", "by": "Centris", "text": "Systemic foliar fungicide applied preventatively or at early disease onset in a range of horticultural crops.", "image": "img/ads/centris-logo.png", "url": "https://centrissolutions.com.au/fungicides/" },
+    { "name": "Transform", "by": "Corteva", "text": "Systemic insecticide with a novel mode of action for controlling sap-feeding (sucking) insects.", "image": "img/ads/corteva-logo.jpg", "url": "https://www.corteva.com/au/products-and-solutions/crop-protection/transform-isoclast-active.html" },
+    { "name": "N-Boost", "by": "Centris", "text": "Patented nitrogen booster to improve nitrogen use and crop productivity.", "image": "img/ads/centris-logo.png", "url": "https://centrissolutions.com.au/biostimulants-and-fertilisers/#nboost" },
+    { "name": "Example product — your ad here", "text": "Placeholder ad: replace this entry in ads.json.", "image": "img/ads/example-1.svg", "url": "https://www.agronicaag.com" },
+    { "name": "Example product — your ad here", "text": "Placeholder ad: replace this entry in ads.json.", "image": "img/ads/example-2.svg", "url": "https://www.agronicaag.com" },
+    { "name": "Example product — your ad here", "text": "Placeholder ad: replace this entry in ads.json.", "image": "img/ads/example-3.svg", "url": "https://www.agronicaag.com" }
+  ]
+}

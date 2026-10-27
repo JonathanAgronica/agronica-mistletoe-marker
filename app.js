@@ -218,36 +218,28 @@
     });
     drawPlot();
   }
-  function drawPlot() {
-    var c = $('plot'), g = c.getContext('2d'), W = c.width, H = c.height;
-    g.clearRect(0, 0, W, H);
+  // satellite map in the menu: track(s) + all marks + live position (Leaflet / Esri World Imagery, see map.js)
+  var menuMap = null;
+  function menuData() {
     var tracks = [state.track].concat(state.extraTracks.map(function (t) { return t.pts; }));
-    var pts = [];
-    tracks.forEach(function (t) { pts = pts.concat(t); });
-    pts = pts.concat(state.marks);
-    if (!pts.length) { g.fillStyle = '#fff8'; g.font = '20px sans-serif'; g.fillText('No data yet', 20, 40); return; }
-    var minLa = Infinity, maxLa = -Infinity, minLo = Infinity, maxLo = -Infinity;
-    pts.forEach(function (p) {
-      minLa = Math.min(minLa, p.lat); maxLa = Math.max(maxLa, p.lat);
-      minLo = Math.min(minLo, p.lon); maxLo = Math.max(maxLo, p.lon);
-    });
-    var midLa = (minLa + maxLa) / 2, kx = Math.cos(midLa * Math.PI / 180);
-    var w = Math.max((maxLo - minLo) * kx, 1e-6), h = Math.max(maxLa - minLa, 1e-6), pad = 20;
-    var sc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);
-    var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
-    function X(lon) { return ox + (lon - minLo) * kx * sc; }
-    function Y(lat) { return H - (oy + (lat - minLa) * sc); }
-    g.lineWidth = 2; g.strokeStyle = '#98b603';
-    tracks.forEach(function (t) {
-      if (t.length < 2) return;
-      g.beginPath(); t.forEach(function (p, i) { i ? g.lineTo(X(p.lon), Y(p.lat)) : g.moveTo(X(p.lon), Y(p.lat)); }); g.stroke();
-    });
-    state.marks.forEach(function (m) {
-      var cc = m.cat && KML.catById(m.cat);
-      g.fillStyle = KML.typeColor(cc ? m.cat : '', m.side); g.strokeStyle = '#fff'; g.lineWidth = 2;
-      KML.shapePath(g, KML.typeShape(cc ? m.cat : ''), X(m.lon), Y(m.lat), cc ? 8 : 7); g.fill(); g.stroke();
-    });
+    var fit = state.marks.slice();
+    tracks.forEach(function (t) { var step = Math.max(1, Math.ceil(t.length / 150)); for (var i = 0; i < t.length; i += step) fit.push(t[i]); });
+    var pos = null, hd = null;
+    if (lastPos && Date.now() - lastPos.ts <= 30000) {
+      pos = { lat: lastPos.lat, lon: lastPos.lon, acc: lastPos.acc };
+      if (lastPos.heading != null && !isNaN(lastPos.heading) && lastPos.speed != null && lastPos.speed > 0.7) hd = lastPos.heading;
+      fit.push(pos);
+    }
+    return { marks: state.marks, tracks: tracks, pos: pos, heading: hd, fitPoints: fit,
+      fitKey: state.marks.length + '|' + state.extraTracks.length + '|' + (state.track.length ? 1 : 0) };
   }
+  function drawPlot() {
+    if ($('sheet').classList.contains('hidden') || !window.MMap || !window.L) return;
+    if (!menuMap) menuMap = window.MMap.create($('menuMap'), {});
+    menuMap.update(menuData());
+  }
+  listeners.push(function () { drawPlot(); });
+  window.__menuMap = function () { return menuMap; };
 
   // ---------- export / import ----------
   function stamp() {
@@ -310,7 +302,7 @@
     b.onclick = function () { pickCat(b.getAttribute('data-cat')); };
   });
   $('undo').onclick = undo;
-  $('menuBtn').onclick = function () { $('sheet').classList.remove('hidden'); renderList(); };
+  $('menuBtn').onclick = function () { $('sheet').classList.remove('hidden'); renderList(); if (menuMap) menuMap.showSaved(); };
   $('closeSheet').onclick = function () { $('sheet').classList.add('hidden'); };
   $('exportBtn').onclick = exportKml;
   $('importBtn').onclick = function () { $('importFile').click(); };

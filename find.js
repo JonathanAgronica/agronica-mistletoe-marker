@@ -199,7 +199,7 @@
     if (rafId) return;
     rafId = requestAnimationFrame(function () { rafId = 0; if (dirty) { dirty = false; renderLive(force); } });
   }
-  function renderAll() { $('findLegend').innerHTML = KML.legendHtml('<span class="lg"><i class="sp circle" style="background:#cfcfcf"></i>Unknown</span><span class="lg"><i class="sp circle" style="background:#98b60055;box-shadow:inset 0 0 0 2px #98b603"></i>Found</span><span class="lg"><i class="sp circle" style="background:#fff"></i>You</span>'); renderSessions(); renderSettings(); renderCats(); pump(true); }
+  function renderAll() { $('findLegend').innerHTML = KML.legendHtml('<span class="lg"><i class="sp circle" style="background:#cfcfcf"></i>Unknown</span><span class="lg"><i class="sp circle" style="background:#98b60055;box-shadow:inset 0 0 0 2px #98b603"></i>Found</span><span class="lg"><i class="sp circle" style="background:#98b603"></i>Treated</span><span class="lg"><i class="sp circle" style="background:#2d9cff;box-shadow:0 0 0 2px #fff"></i>You</span><span class="lg"><i class="sp ring"></i>Alert radius</span>'); renderSessions(); renderSettings(); renderCats(); pump(true); }
   function renderSessions() {
     var sel = $('sessSel'); sel.innerHTML = '';
     if (!F.sessions.length) { var o = document.createElement('option'); o.textContent = '(no sessions - load a KML)'; sel.appendChild(o); sel.disabled = true; return; }
@@ -310,66 +310,26 @@
     if (rows.length > 300) { var more = document.createElement('li'); more.className = 'more'; more.textContent = '+ ' + (rows.length - 300) + ' more'; ul.appendChild(more); }
   }
 
-  // ---------- map ----------
-  var COL = { L: '#2d62ff', R: '#ffb400', U: '#cfcfcf', F: '#98b603' };
+  // ---------- map (Leaflet + Esri World Imagery satellite tiles, see map.js) ----------
+  var fmap = null;
   function drawMap() {
-    var c = $('map'), s = active();
-    if (!c.offsetWidth) return;
-    var dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
-    if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
-    var g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    if (!s || !s.points.length) { g.fillStyle = '#ffffff88'; g.font = '14px system-ui,sans-serif'; g.fillText('No points loaded', 16, 28); return; }
-    // choose the set to fit
-    var vpts = vis(s), fit = [], t = pos ? GEO.nearestUnfound(vpts, pos) : null;
+    var host = $('findMap'), s = active();
+    if (!host.offsetWidth || !window.MMap || !window.L) return;
+    if (!fmap) fmap = window.MMap.create(host, { find: true, onStatus: function (pt, status) { setStatus(pt, status); renderSessions(); } });
+    var vpts = vis(s), t = pos && s ? GEO.nearestUnfound(vpts, pos) : null, hd = currentHeading();
+    var fit = [];
     if (settings.mapMode === 'all' || !pos) { fit = vpts.slice(); if (pos) fit.push(pos); }
     else {
       fit.push(pos);
-      var near = GEO.withDistances(vpts.filter(function (p) { return !p.status; }), pos).slice(0, 4);
-      near.forEach(function (n) { fit.push(n.p); });
+      GEO.withDistances(vpts.filter(function (p) { return !p.status; }), pos).slice(0, 4).forEach(function (n) { fit.push(n.p); });
+      var m = Math.max(settings.radius * 1.3, 20);
+      [0, 90, 180, 270].forEach(function (b) { fit.push(GEO.destination(pos, b, m)); });
     }
-    var ref = fit[0], minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
-    fit.forEach(function (q) { var e = GEO.enu(ref, q); minX = Math.min(minX, e.x); maxX = Math.max(maxX, e.x); minY = Math.min(minY, e.y); maxY = Math.max(maxY, e.y); });
-    if (settings.mapMode !== 'all' && pos) { var m = Math.max(settings.radius * 1.2, 15); var u = GEO.enu(ref, pos); minX = Math.min(minX, u.x - m); maxX = Math.max(maxX, u.x + m); minY = Math.min(minY, u.y - m); maxY = Math.max(maxY, u.y + m); }
-    var w = Math.max(maxX - minX, 10), h = Math.max(maxY - minY, 10), pad = 22;
-    var sc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);
-    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    function P(q) { var e = GEO.enu(ref, q); return [W / 2 + (e.x - cx) * sc, H / 2 - (e.y - cy) * sc]; }
-    // scale bar
-    var nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000], bar = nice[0];
-    nice.forEach(function (n) { if (n * sc < W * 0.4) bar = n; });
-    g.strokeStyle = '#ffffffaa'; g.fillStyle = '#ffffffaa'; g.lineWidth = 2; g.font = '11px system-ui,sans-serif';
-    g.beginPath(); g.moveTo(12, H - 12); g.lineTo(12 + bar * sc, H - 12); g.stroke(); g.fillText(bar >= 1000 ? bar / 1000 + ' km' : bar + ' m', 12, H - 18);
-    // north marker
-    g.fillText('N ↑', W - 28, 16);
-    // track
-    if (s.track.length > 1) {
-      g.strokeStyle = '#98b603'; g.lineWidth = 2.5; g.lineJoin = 'round'; g.beginPath();
-      s.track.forEach(function (q, i) { var p = P(q); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); g.stroke();
-    }
-    // alert radius
-    if (pos) { var pp = P(pos); g.strokeStyle = '#ffffff55'; g.setLineDash([5, 5]); g.lineWidth = 1.5;
-      g.beginPath(); g.arc(pp[0], pp[1], settings.radius * sc, 0, 7); g.stroke(); g.setLineDash([]); }
-    // target line
-    if (pos && t) { var a = P(pos), b = P(t.p); g.strokeStyle = '#ffffff99'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
-    // points
-    vpts.forEach(function (q) {
-      var p = P(q); if (p[0] < -10 || p[1] < -10 || p[0] > W + 10 || p[1] > H + 10) return;
-      var isT = t && t.p === q;
-      KML.shapePath(g, KML.typeShape(q.cat), p[0], p[1], isT ? 9 : 6);
-      if (q.status) { g.fillStyle = COL.F + '55'; g.fill(); g.strokeStyle = COL.F; g.lineWidth = 2; g.stroke(); }
-      else if (q.cat && KML.catById(q.cat)) {
-        g.fillStyle = KML.typeColor(q.cat, q.side); g.fill(); g.strokeStyle = isT ? '#fff' : '#000a'; g.lineWidth = isT ? 3.5 : 1.5; g.stroke();
-      }
-      else { g.fillStyle = COL[q.side || 'U']; g.fill(); g.strokeStyle = isT ? '#fff' : '#000a'; g.lineWidth = isT ? 3 : 1.5; g.stroke(); }
+    fmap.update({
+      marks: vpts, tracks: s && s.track.length > 1 ? [s.track] : [], target: t ? t.p.id : null, targetPoint: t ? t.p : null,
+      pos: pos ? { lat: pos.lat, lon: pos.lon, acc: pos.acc } : null, heading: hd.h, radius: settings.radius, fitPoints: fit,
+      fitKey: (s ? s.id : '') + '|' + settings.mapMode + '|' + (t ? t.p.id : '') + '|' + vpts.length + '|' + (pos ? 1 : 0)
     });
-    // you
-    if (pos) {
-      var me = P(pos), hd = currentHeading();
-      g.save(); g.translate(me[0], me[1]);
-      if (hd.h != null) { g.rotate(hd.h * Math.PI / 180); g.beginPath(); g.moveTo(0, -13); g.lineTo(8, 9); g.lineTo(0, 4); g.lineTo(-8, 9); g.closePath(); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1.5; g.stroke(); }
-      else { g.beginPath(); g.arc(0, 0, 7, 0, 7); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#000'; g.lineWidth = 2; g.stroke(); }
-      g.restore();
-    }
   }
 
   // ---------- export ----------
@@ -463,7 +423,7 @@
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
   }
 
-  window.Find = { shown: function () { pump(true); },
+  window.Find = { shown: function () { pump(true); }, _map: function () { return fmap; },
     _debug: function () { return { F: F, pos: pos, alerted: alerted }; } };
   renderAll();
   checkShared();
