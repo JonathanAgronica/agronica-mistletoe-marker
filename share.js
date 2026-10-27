@@ -6,7 +6,7 @@
   'use strict';
   var SKEY = 'agronica-mistletoe-share-v1', QKEY = 'agronica-mistletoe-queue-v1';
   var CATMAP = { '': 'mistletoe', irrigation: 'broken-irrigation', phytophthora: 'phytophthora', nutrition: 'nutrition' };
-  var VARIETIES = ['A4', 'A16', 'A38', '741', '344', '246', '816', '842', '660', 'Other'];
+  var VARIETIES = ['A4', 'A16', 'A38', '741', '344', '246', '816', '842', '660', 'A203', 'MCT1', 'P', 'G', 'J', 'R', '47', 'Other'];
   var SEVS = ['light', 'moderate', 'heavy'];
   var SETTLE_MS = 5000, MARK_BATCH = 5000, TRACK_BATCH = 20000, MAX_BYTES = 900000, TRACK_CAP = 5000, SENT_CAP = 5000, DROP_CAP = 100, TRACK_MIN_M = 15;
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

@@ -1,4 +1,4 @@
-const CACHE = 'mistletoe-marker-v12';
+const CACHE = 'mistletoe-marker-v13';
 const SHARED = 'mistletoe-shared'; // holds a KML shared to the app (Android share target); kept across versions
 const VIEWED = 'mistletoe-tiles-viewed'; // satellite tiles seen while browsing maps (runtime cache, capped, kept across versions)
 const SAVED = 'mistletoe-tiles-saved';   // tiles pre-cached with "Save map area for offline" (written by the page, kept across versions)
