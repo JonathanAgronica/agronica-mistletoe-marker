@@ -117,8 +117,8 @@ near(r.marks[0].lat, -27.4801, 1e-9); near(r.marks[0].lon, 153.0301, 1e-9); asse
 assert.strictEqual(r.marks[3].name, 'Two #1'); assert.strictEqual(r.marks[4].name, 'Two #2'); assert.ok(r.marks.every(m => m.status === '')); n += 8;
 
 // --- "Other" categories: names, KML styles, round trip, speech label
-assert.deepStrictEqual(KML.CATS.map(c => c.label), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue']); n++;
-assert.strictEqual(new Set(KML.CATS.map(c => c.kmlL).concat(KML.CATS.map(c => c.kmlR))).size, 6); assert.strictEqual(new Set(KML.CATS.map(c => c.icon)).size, 3); n += 2;
+assert.deepStrictEqual(KML.CATS.map(c => c.label), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue', 'Missing tree']); n++;
+assert.strictEqual(new Set(KML.CATS.map(c => c.kmlL).concat(KML.CATS.map(c => c.kmlR))).size, 8); assert.strictEqual(new Set(KML.CATS.map(c => c.icon)).size, 4); n += 2;
 assert.strictEqual(KML.markName({ side: 'L', n: 5, cat: 'irrigation' }), 'L-5 Broken irrigation');
 assert.strictEqual(KML.markName({ side: 'R', n: 6 }), 'R-6');
 const cs = { marks: [
@@ -127,11 +127,11 @@ const cs = { marks: [
   { side: 'R', n: 6, cat: 'phytophthora', name: 'R-6 Phytophthora treatment', lat: -27.3, lon: 153.3, acc: 3, ts: 1700000200000 },
   { side: 'R', n: 7, cat: 'nutrition', name: 'R-7 Nutritional issue', lat: -27.4, lon: 153.4, acc: 3, ts: 1700000300000 }], track: [] };
 const ck = KML.buildKml(cs, {});
-// 8 distinct styles: markL, markR + (irrigation, phytophthora, nutrition) x (L, R), each with its own colour; used marks reference them
-const STYLE_IDS = ['markL', 'markR'].concat([].concat(...['irrigation', 'phytophthora', 'nutrition'].map(c => ['L', 'R'].map(s => 'cat-' + c + '-' + s))));
+// 10 distinct styles: markL, markR + (irrigation, phytophthora, nutrition, missing) x (L, R), each with its own colour; used marks reference them
+const STYLE_IDS = ['markL', 'markR'].concat([].concat(...['irrigation', 'phytophthora', 'nutrition', 'missing'].map(c => ['L', 'R'].map(s => 'cat-' + c + '-' + s))));
 const styleCols = STYLE_IDS.map(id => { const m = new RegExp('<Style id="' + id + '"><IconStyle><color>([0-9a-f]{8})</color>').exec(ck); ok(m, 'style ' + id); return m[1]; });
-assert.strictEqual(STYLE_IDS.length, 8); assert.strictEqual(new Set(styleCols).size, 8, 'eight distinct style colours: ' + styleCols); n += 2;
-assert.strictEqual(new Set(KML.CATS.map(c => c.shape).concat('circle')).size, 4); n++;      // distinct marker shape per type (colour-blind aid)
+assert.strictEqual(STYLE_IDS.length, 10); assert.strictEqual(new Set(styleCols).size, 10, 'ten distinct style colours: ' + styleCols); n += 2;
+assert.strictEqual(new Set(KML.CATS.map(c => c.shape).concat('circle')).size, 5); n++;      // distinct marker shape per type (colour-blind aid)
 // left is the darker shade, right the lighter shade of the same type
 const lum = h => { const v = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
 KML.CATS.forEach(c => { ok(lum(KML.typeColor(c.id, 'L')) < lum(KML.typeColor(c.id, 'R')), c.id + ' L darker than R'); });
@@ -177,7 +177,7 @@ ok(pl.z1 <= pl1.z1 && pl.count <= MM.SAVE_LIMIT, 'labels layer counts toward the
 ok(MM.planSave(small, 25, 1).z1 <= 19 && MM.planSave(small, 2, 1).z0 >= 8, 'zoom range is clamped (never above 19)');
 const lst = MM.tileList(small, 17, 18); ok(lst.length === MM.countAt(small, 17) + MM.countAt(small, 18) && lst.every(t => t.z >= 17 && t.z <= 18), 'tileList matches counts');
 const sw = nfs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
-ok(/const CACHE = 'mistletoe-marker-v14'/.test(sw), 'cache bumped to v14');
+ok(/const CACHE = 'mistletoe-marker-v15'/.test(sw), 'cache bumped to v15');
 ok(/VIEWED_MAX = 2000/.test(sw) && /mistletoe-tiles-viewed/.test(sw) && /mistletoe-tiles-saved/.test(sw), 'separate runtime tile caches with ~2000 cap');
 ['map.js', 'extras.js', 'config.js', 'share.js', 'ads.json', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'img/helper.png'].forEach(f => ok(sw.includes("'./" + f + "'"), 'precached ' + f));
 const adsJ = JSON.parse(nfs.readFileSync(path.join(__dirname, '../ads.json'), 'utf8')).ads;

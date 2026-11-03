@@ -54,7 +54,8 @@
     circle: function (a) { return '<circle cx="14" cy="14" r="8" ' + a + '/>'; },
     diamond: function (a) { return '<polygon points="14,3.5 24.5,14 14,24.5 3.5,14" ' + a + '/>'; },
     triangle: function (a) { return '<polygon points="14,3.8 24,21.5 4,21.5" ' + a + ' stroke-linejoin="round"/>'; },
-    square: function (a) { return '<rect x="5.5" y="5.5" width="17" height="17" rx="2" ' + a + '/>'; }
+    square: function (a) { return '<rect x="5.5" y="5.5" width="17" height="17" rx="2" ' + a + '/>'; },
+    cross: function (a) { return '<polygon points="10.5,3.5 17.5,3.5 17.5,10.5 24.5,10.5 24.5,17.5 17.5,17.5 17.5,24.5 10.5,24.5 10.5,17.5 3.5,17.5 3.5,10.5 10.5,10.5" ' + a + ' stroke-linejoin="round"/>'; }
   };
   function markIcon(m, isTarget) {
     var K = root.KML, cat = m.cat && K.catById(m.cat) ? m.cat : '';

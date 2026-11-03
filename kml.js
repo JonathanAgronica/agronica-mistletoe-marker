@@ -18,7 +18,8 @@
   var CATS = [
     { id: 'irrigation', label: 'Broken irrigation', L: '#0a8fb5', R: '#5ee6ff', shape: 'diamond', icon: 'water' },
     { id: 'phytophthora', label: 'Phytophthora treatment', L: '#6a2bbf', R: '#c19bff', shape: 'triangle', icon: 'triangle' },
-    { id: 'nutrition', label: 'Nutritional issue', L: '#c2185b', R: '#ff8cc6', shape: 'square', icon: 'square' }
+    { id: 'nutrition', label: 'Nutritional issue', L: '#c2185b', R: '#ff8cc6', shape: 'square', icon: 'square' },
+    { id: 'missing', label: 'Missing tree', L: '#2e7d32', R: '#8fe388', shape: 'cross', icon: 'cross-hairs' }
   ];
   CATS.forEach(function (c) { c.color = c.R; c.kmlL = kmlColour(c.L); c.kmlR = kmlColour(c.R); });   // c.color = light shade (text on dark)
   var TYPES = [MIST].concat(CATS);
@@ -30,6 +31,7 @@
     g.beginPath();
     if (shape === 'diamond') { g.moveTo(x, y - r * 1.25); g.lineTo(x + r * 1.25, y); g.lineTo(x, y + r * 1.25); g.lineTo(x - r * 1.25, y); }
     else if (shape === 'triangle') { g.moveTo(x, y - r * 1.2); g.lineTo(x + r * 1.15, y + r * 0.9); g.lineTo(x - r * 1.15, y + r * 0.9); }
+    else if (shape === 'cross') { var a = r * 0.42, b = r * 1.15; g.moveTo(x - a, y - b); g.lineTo(x + a, y - b); g.lineTo(x + a, y - a); g.lineTo(x + b, y - a); g.lineTo(x + b, y + a); g.lineTo(x + a, y + a); g.lineTo(x + a, y + b); g.lineTo(x - a, y + b); g.lineTo(x - a, y + a); g.lineTo(x - b, y + a); g.lineTo(x - b, y - a); g.lineTo(x - a, y - a); }
     else if (shape === 'square') { g.rect(x - r * 0.95, y - r * 0.95, r * 1.9, r * 1.9); return; }
     else { g.arc(x, y, r, 0, 7); return; }
     g.closePath();

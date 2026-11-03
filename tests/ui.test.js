@@ -84,7 +84,7 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   const marksBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')).marks.length);
   await page.click('#btnOL'); await sleep(300);
   assert.ok(await page.$eval('#catSheet', e => !e.classList.contains('hidden')), 'category sheet opens');
-  assert.deepStrictEqual(await page.$$eval('.cat-opt', o => o.map(x => x.textContent.trim())), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue']);
+  assert.deepStrictEqual(await page.$$eval('.cat-opt', o => o.map(x => x.textContent.trim())), ['Broken irrigation', 'Phytophthora treatment', 'Nutritional issue', 'Missing tree']);
   assert.strictEqual(await txt('catCancel'), 'Cancel'); assert.strictEqual(await txt('catTitle'), 'Other Left');
   assert.ok((await page.$$eval('.cat-opt', o => o.map(x => x.getBoundingClientRect().height))).every(h => h >= 60), 'big options');
   await page.screenshot({ path: SHOTS + '/2b-mark-category-sheet.png' });
@@ -155,7 +155,7 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   await page.click('#closeSheet');
   const mkml = await page.evaluate(() => KML.buildKml(JSON.parse(localStorage.getItem('agronica-mistletoe-session-v1')), {}));
   ['cat-irrigation-L', 'cat-phytophthora-R', 'cat-nutrition-L'].forEach(id => assert.ok(mkml.includes('<styleUrl>#' + id + '</styleUrl>'), id));
-  assert.strictEqual((mkml.match(/<Style id="(mark[LR]|cat-\w+-[LR])"/g) || []).length, 8, 'eight mark styles');
+  assert.strictEqual((mkml.match(/<Style id="(mark[LR]|cat-\w+-[LR])"/g) || []).length, 10, 'ten mark styles');
   assert.ok(/Category: Broken irrigation/.test(mkml) && /<name>R-\d+ Phytophthora treatment<\/name>/.test(mkml));
   const { DOMParser: DP } = require('@xmldom/xmldom');
   const mrt = require('../kml.js').parseKml(mkml, DP);
@@ -280,8 +280,8 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
   // ----- Find mode: category points, speech label and category filter -----
   await (await page.$('#findFile')).uploadFile('/tmp/cats.kml'); await sleep(600);
   assert.strictEqual(await txt('progTxt'), '0 of 4 found');
-  assert.strictEqual(await page.$$eval('#catFilter .fchip', c => c.length), 4);
-  assert.strictEqual(await page.$$eval('#catFilter .fchip.on', c => c.length), 4, 'all categories on by default');
+  assert.strictEqual(await page.$$eval('#catFilter .fchip', c => c.length), 5);
+  assert.strictEqual(await page.$$eval('#catFilter .fchip.on', c => c.length), 5, 'all categories on by default');
   await setPos(T0); await sleep(300);
   await evs();
   await page.click('#findStart'); await sleep(1800);
@@ -314,11 +314,11 @@ fs.writeFileSync('/tmp/sample.kml', foreign);
 
   // ----- service worker / share target -----
   const swInfo = await page.evaluate(async () => {
-    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v14');
+    const names = await caches.keys(); const c = await caches.open('mistletoe-marker-v15');
     return { names, urls: (await c.keys()).map(r => new URL(r.url).pathname.split('/').pop() || '/') };
   });
   console.log('Caches:', JSON.stringify(swInfo));
-  assert.ok(swInfo.names.includes('mistletoe-marker-v14') && !swInfo.names.includes('mistletoe-marker-v13') && !swInfo.names.includes('mistletoe-marker-v11') && !swInfo.names.includes('mistletoe-marker-v10') && !swInfo.names.includes('mistletoe-marker-v9') && !swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
+  assert.ok(swInfo.names.includes('mistletoe-marker-v15') && !swInfo.names.includes('mistletoe-marker-v14') && !swInfo.names.includes('mistletoe-marker-v13') && !swInfo.names.includes('mistletoe-marker-v11') && !swInfo.names.includes('mistletoe-marker-v10') && !swInfo.names.includes('mistletoe-marker-v9') && !swInfo.names.includes('mistletoe-marker-v8') && !swInfo.names.includes('mistletoe-marker-v7'));
   assert.ok(swInfo.names.includes('mistletoe-tiles-viewed') && swInfo.names.includes('mistletoe-tiles-saved'), 'separate tile caches: ' + swInfo.names);
   ['geo.js', 'find.js', 'kml.js', 'app.js', 'style.css', 'index.html', 'bg-harvester.webp', 'bg-orchard-sunset.webp', 'bg-macadamia-grove.webp', 'harvest-nuts.webp', 'logo.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'favicon.svg', 'favicon-32.png', 'agronica-logo.svg', 'map.js', 'extras.js', 'leaflet.js', 'leaflet.css', 'helper.png', 'ads.json', 'centris-logo.png', 'corteva-logo.jpg', 'example-1.svg'].forEach(f => assert.ok(swInfo.urls.includes(f), 'cached ' + f));
   // Agronica logo: full-strength in header, >=35% opacity brand mark in both views, not an overlay above buttons

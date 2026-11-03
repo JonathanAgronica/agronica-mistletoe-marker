@@ -96,7 +96,7 @@ const INGEST = 'https://170-64-148-102.sslip.io/api/mistletoe/submit', ACCESS = 
   const posts = await page.evaluate(() => window.__posts.filter(p => p.url.endsWith('/submit')));
   assert.ok(posts.length >= 1, 'POST to the ingest URL'); const all = posts.flatMap(p => p.body.marks);
   assert.strictEqual(new Set(all.map(m => m.id)).size, all.length, 'no duplicate marks uploaded'); assert.strictEqual(all.length, 5, 'opt-in marks only (the OFF mark is not sent): ' + all.length);
-  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v14'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
+  const p0 = posts[0].body; assert.strictEqual(p0.consent, true); assert.strictEqual(p0.appVersion, 'v15'); assert.strictEqual(p0.district, 'Bundaberg'); assert.strictEqual(p0.variety, 'A16');
   assert.deepStrictEqual(p0.contact, { name: 'Jo Bloggs', email: 'jo@example.com', farm: 'Bloggs Macs' }); assert.ok(p0.deviceId === st.s.deviceId && p0.consent === true); assert.strictEqual(posts[0].headers['X-Ingest-Key'], 'mm-f1e22c16ccf1fe6050906fae'); assert.ok(/^[A-Za-z0-9._:-]{1,64}$/.test(p0.sessionId));
   assert.ok(all.some(m => m.severity === 'heavy') && all.some(m => m.category === 'broken-irrigation') && all.some(m => m.variety === 'A38'));
   assert.ok(all.every(m => typeof m.lat === 'number' && /^\d{4}-/.test(m.time) && (m.side === 'L' || m.side === 'R')));
